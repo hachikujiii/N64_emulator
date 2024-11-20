@@ -2,29 +2,11 @@
 #define N64_PIPELINE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct {
-    bool PCSrc;
-    bool PCWrite;
-    bool IDwrite;
-    bool flush;
-    uint64_t instruction;
-
-    //need control units for forwarding mem/wb to ex, hazard detection unit, pipeline stall, more?
-} ICRF_Pipeline;
-
-typedef struct {
-    bool RegDst;
-    bool ALUSrc;
-    bool MemRead;
-    bool MemToReg;
-    bool MemWrite;
-    bool RegWrite;
-    int ALUOp;
-    bool jump;
-    bool branch;
-    bool zero;
     
+    uint32_t instruction;
     uint8_t opcode;
     uint8_t rs; 
     uint8_t rt;
@@ -35,18 +17,36 @@ typedef struct {
     uint64_t rs_val;
     uint64_t rt_val;
     int32_t SEOffset;
-    uint32_t targetaddr;
+    uint32_t branch_addr;
+    uint32_t jump_addr;
+} Instruction;
+
+typedef struct {
+    bool PCSrc;
+    bool PCWrite;
+    bool IDwrite;
+    bool flush;
+    uint32_t instruction;
+} ICRF_Pipeline;
+
+typedef struct {
+    bool RegDst;
+    bool ALUSrc;
+
+    bool jump;
+    bool branch;
+    bool zero;
+    Instruction_Control control;
+    Instruction instruction;
 } RFEX_Pipeline;
 
 typedef struct {
-    bool MemRead;
-    bool MemWrite;
-    bool MemToReg;
-    bool RegWrite;
 
     int ALUResult;
     int SWValue;
     int WriteRegNum;
+    Instruction_Control control;
+    Instruction instruction;
 } EXDC_Pipeline;
 
 typedef struct {
@@ -56,6 +56,8 @@ typedef struct {
     int ALUResult;
     int LWDataValue;
     int WriteRegNum;
+    Instruction_Control control;
+    Instruction instruction;
 } DCWB_Pipeline;
 
 typedef struct {

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "n64_pipeline.h"
+
 #define RDRAM_SIZE         0x800000 //8MB RAM
 #define ROM_SIZE           0x2000000 //32MB ROM
 #define PIF_ROM_SIZE       0x7C0
@@ -86,6 +87,7 @@ typedef struct {
     uint64_t gpr[32];
     double fpr[32]; 
     uint64_t PC; /*= init_address?*/
+    uint64_t delay_slot;
     uint64_t HI, LO;
     bool LLbit;
     float FCR0;
