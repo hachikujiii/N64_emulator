@@ -1,25 +1,14 @@
-#ifndef N64_PIPELINE_H
-#define N64_PIPELINE_H
+#ifndef PIPELINE_H
+#define PIPELINE_H
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "instruction_control.h"
+#include "cpu.h"
+#include "my_structs.h"
 
-typedef struct {
-    uint32_t instruction;
-    uint8_t opcode;
-    uint8_t rs; 
-    uint8_t rt;
-    uint8_t rd;
-    uint8_t shamt;
-    uint8_t function;
-    int16_t immediate;
-    uint64_t rs_val;
-    uint64_t rt_val;
-    int32_t SEOffset;
-    uint32_t branch_addr;
-    uint32_t jump_addr;
-} Instruction;
+void IC_stage(unsigned char* rom, N64 *n64); 
+void RF_stage(CPU *cpu); 
+void EX_stage(N64 *n64);
 
 typedef struct {
     bool PCSrc;

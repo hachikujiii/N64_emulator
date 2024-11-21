@@ -1,8 +1,8 @@
 #ifndef INSTRUCTION_CONTROL_H
 #define INSTRUCTION_CONTROL_H
+
 #include <stdio.h>
-#include "my_structs.h"
-#include "instruction_control.c"
+#include "cpu.h"
 
 typedef enum {
     LOAD, STORE, ALU, BRANCH, JUMP, COPROC, SPECIAL, INVALID
@@ -23,8 +23,25 @@ typedef struct {
     void (*execute)(CPU *cpu);
 } Instruction_Control;
 
+typedef struct {
+    uint32_t instruction;
+    uint8_t opcode;
+    uint8_t rs; 
+    uint8_t rt;
+    uint8_t rd;
+    uint8_t shamt;
+    uint8_t function;
+    int16_t immediate;
+    uint64_t rs_val;
+    uint64_t rt_val;
+    int32_t SEOffset;
+    uint32_t branch_addr;
+    uint32_t jump_addr;
+} Instruction;
+
 //OP CODES
 extern Instruction_Control opcode_table[64];
+Instruction decode(uint32_t inst);
 
 //opcode_table calls
 void execute_r_format(CPU *cpu);
@@ -75,3 +92,5 @@ void SD(CPU *cpu);
 void instruction_exception(CPU *cpu);
 
 #endif
+
+

@@ -1,4 +1,6 @@
+#include "cpu.h"
 #include "instruction_control.h"
+
 
 //OP CODES
 Instruction_Control opcode_table[64] = {
@@ -123,7 +125,7 @@ void execute_r_format(CPU *cpu) {
             break;
                     
         case 0x08: //jump to address stored in rs
-            char *rs_reg = register_names[rs];
+            char *rs_reg;
             printf("%X  JR  %s\n", PC, rs_reg);
             PC += 4;
             break;
@@ -562,7 +564,7 @@ void BGTZ(CPU *cpu) {
 void ADDI(CPU *cpu) {
     
     int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    int64_t rs_val = (int64_t)cpu.pipeline.RFEX_READ.instruction.rs_val;
+    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
     int64_t result = rs_val + SE_Immediate;
 
     //TODO: handle int overflow...
@@ -579,7 +581,7 @@ void ADDIU(CPU *cpu) {
 
     int16_t immediate = cpu->pipeline.RFEX_READ.instruction.immediate;
     int64_t SE_Immediate = (int64_t)immediate;
-    int64_t rs_val = (int64_t)cpu.pipeline.RFEX_READ.instruction.rs_val;
+    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
     int64_t result = rs_val + SE_Immediate;
 
     cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (uint64_t)result; 
@@ -589,7 +591,7 @@ void SLTI(CPU *cpu) {
 
     int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
     int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
-    if(rs_val < SE_immediate) {
+    if(rs_val < SE_Immediate) {
         cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 1;
     } else {
         cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 0;
@@ -601,7 +603,7 @@ void SLTIU(CPU *cpu) {
     int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
     uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
 
-    if(rs_val < (uint64_t)SE_immediate) {
+    if(rs_val < (uint64_t)SE_Immediate) {
         cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 1;
     } else {
         cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 0;
@@ -724,18 +726,60 @@ void LDR(CPU *cpu) {
     printf("LDR HAPPENING LOL\n");
 }
 
-LB
-LH
-LWL
-LW
-LBU
-LHU
-LWR
-LWU
-SB
-SH
-SWL
-SW
-SDL
-SDR
-SWR
+void LB(CPU *cpu) {
+
+}
+void LH(CPU *cpu) {
+
+}
+
+void LWL(CPU *cpu) {
+
+}
+
+void LW(CPU *cpu) {
+
+}
+void LBU(CPU *cpu) {
+
+}
+
+void LHU(CPU *cpu) {
+
+}
+
+void LWR(CPU *cpu) {
+
+}
+
+void LWU(CPU *cpu) {
+
+}
+
+void SB(CPU *cpu) {
+
+}
+
+void SH(CPU *cpu) {
+
+}
+
+void SWL(CPU *cpu) {
+
+}
+
+void SW(CPU *cpu) {
+
+}
+
+void SDL(CPU *cpu) {
+
+}
+
+void SDR(CPU *cpu) {
+
+}
+
+void SWR(CPU *cpu) {
+
+}

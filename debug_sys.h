@@ -2,7 +2,7 @@
 #define DEBUG_SYS_H 
 
 #include "my_structs.h" 
-#include "n64_pipeline.h" 
+#include "pipeline.h" 
 #include "instruction_control.h" 
 #include <stdio.h> 
 

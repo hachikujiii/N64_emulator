@@ -2,13 +2,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "n64.h"
 #include "my_structs.h"
+#include "pipeline.h"
 #include "rom_loading.h"
-#include "n64_pipeline.h"
 #include "mapping.h"
 #include "debug_sys.h"
-#include "page_table.h"
-#include "instruction_control.h"
 
 
 /*HAZARD LIST:
@@ -16,10 +15,7 @@
     MFLO
 */
 
-void IC_stage(unsigned char* rom, N64 *n64);
-void RF_stage(CPU *cpu);
-void EX_stage(N64 *n64);
-bool inRange( uint64_t address, uint64_t start, uint64_t end);
+bool inRange(uint64_t address, uint64_t start, uint64_t end);
 uint32_t map_virtual_address(CPU *cpu, uint32_t virtual_address);
 uint32_t direct_map(uint32_t virtual_address, uint32_t segment_start);
 void Copy_write_to_read(CPU *cpu);
@@ -50,12 +46,9 @@ int main(int argc, char *argv[]) {
     print_cpu(n64);
 
     return 1;
-    while(true) {
-            
-        
-            
-        //pif, bootloader, pc, set all specific register values and control signals
+    while(true) {  
 
+        //pif, bootloader, pc, set all specific register values and control signals
         IC_stage(cartridge.ROM, n64);
         RF_stage(&n64->cpu);
         EX_stage(n64);
@@ -69,67 +62,6 @@ int main(int argc, char *argv[]) {
 
     }     
 
-}
-
-void IC_stage(unsigned char *rom, N64 *n64) {
-
-    n64->cpu.pipeline.ICRF_WRITE.instruction = *(uint32_t *)(rom + n64->cpu.PC);
-}
-
-void RF_stage(CPU *cpu) {
-
-    Instruction decoded_inst = decode(cpu->pipeline.ICRF_READ.instruction);
-    decoded_inst.rs_val = cpu->gpr[decoded_inst.rs];
-    decoded_inst.rt_val = cpu->gpr[decoded_inst.rt];
-
-    if(cpu->pipeline.RFEX_WRITE.control.f_type == I_TYPE) {
-        decoded_inst.SEOffset = (int32_t)decoded_inst.immediate;
-    }
-    
-    if(cpu->pipeline.RFEX_WRITE.control.f_type == J_TYPE) {
-        decoded_inst.branch_addr = cpu->PC + 4 + (decoded_inst.SEOffset << 2);
-        decoded_inst.jump_addr = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF; //fix this
-    }
-    cpu->pipeline.RFEX_WRITE.control = opcode_table[decoded_inst.opcode];
-    cpu->pipeline.RFEX_WRITE.instruction = decoded_inst;
-}
-
-void EX_stage(N64 *n64) {
-    //pass control values that are not used
-
-    n64->cpu.pipeline.EXDC_WRITE.SWValue = n64->cpu.pipeline.RFEX_READ.instruction.rt_val;
-
-    //use both readRegValues
-    if (n64->cpu.pipeline.RFEX_READ.ALUSrc == 0) { 
-
-        if (n64->cpu.pipeline.RFEX_READ.instruction.function == 0x20) { //add
-
-            n64->cpu.pipeline.EXDC_WRITE.ALUResult = (n64->cpu.pipeline.RFEX_READ.instruction.rs_val + n64->cpu.pipeline.RFEX_READ.instruction.rt_val);
-
-        } else if (n64->cpu.pipeline.RFEX_READ.instruction.function == 0x22) { //subtract
-
-            n64->cpu.pipeline.EXDC_WRITE.ALUResult = (n64->cpu.pipeline.RFEX_READ.instruction.rs_val - n64->cpu.pipeline.RFEX_READ.instruction.rt_val);
-
-        } else {
-
-            n64->cpu.pipeline.EXDC_WRITE.ALUResult = 0; // used to pass NOPs
-        }
-
-    //use readReg1 and SEOffset
-    } else if (n64->cpu.pipeline.RFEX_READ.ALUSrc == 1) {
-
-        n64->cpu.pipeline.EXDC_WRITE.ALUResult = (n64->cpu.pipeline.RFEX_READ.instruction.rs_val + (int)n64->cpu.pipeline.RFEX_READ.instruction.SEOffset); //casted to int to sign extend
-    } 
-
-    //pass correct writeReg
-    if (n64->cpu.pipeline.RFEX_READ.RegDst == 0) {
-
-        n64->cpu.pipeline.EXDC_WRITE.WriteRegNum = n64->cpu.pipeline.RFEX_READ.instruction.rt;
-
-    } else if (n64->cpu.pipeline.RFEX_READ.RegDst == 1) {
-
-        n64->cpu.pipeline.EXDC_WRITE.WriteRegNum = n64->cpu.pipeline.RFEX_READ.instruction.rd;
-    }
 }
 
 //apparently this is what should be loaded after PIF is done but we'll see...
@@ -237,23 +169,21 @@ void Copy_write_to_read(CPU *cpu) {
 
     cpu->pipeline.ICRF_READ.instruction = cpu->pipeline.ICRF_WRITE.instruction;
 
-    cpu->pipeline.RFEX_READ.RegDst = cpu->pipeline.RFEX_WRITE.RegDst;
-    cpu->pipeline.RFEX_READ.ALUSrc = cpu->pipeline.RFEX_WRITE.ALUSrc;
+    cpu->pipeline.RFEX_READ.instruction = cpu->pipeline.RFEX_WRITE.instruction;
+    cpu->pipeline.RFEX_READ.control = cpu->pipeline.RFEX_WRITE.control;
 
     cpu->pipeline.RFEX_READ.instruction = cpu->pipeline.RFEX_WRITE.instruction;
     cpu->pipeline.RFEX_READ.control = cpu->pipeline.RFEX_WRITE.control;
     
     cpu->pipeline.EXDC_READ.instruction = cpu->pipeline.EXDC_WRITE.instruction;
     cpu->pipeline.EXDC_READ.control = cpu->pipeline.EXDC_WRITE.control;
-    cpu->pipeline.EXDC_READ.ALUResult = cpu->pipeline.EXDC_WRITE.ALUResult;
-    cpu->pipeline.EXDC_READ.SWValue = cpu->pipeline.EXDC_WRITE.SWValue;
-    cpu->pipeline.EXDC_READ.WriteRegNum = cpu->pipeline.EXDC_WRITE.WriteRegNum;
+    cpu->pipeline.EXDC_READ.ALU_Result = cpu->pipeline.EXDC_WRITE.ALU_Result;
+    cpu->pipeline.EXDC_READ.SW_Value = cpu->pipeline.EXDC_WRITE.SW_Value;
+    cpu->pipeline.EXDC_READ.Write_Reg_Num = cpu->pipeline.EXDC_WRITE.Write_Reg_Num;
 
     cpu->pipeline.DCWB_READ.instruction = cpu->pipeline.DCWB_WRITE.instruction;
     cpu->pipeline.DCWB_READ.control = cpu->pipeline.DCWB_WRITE.control;
-    cpu->pipeline.DCWB_READ.MemToReg = cpu->pipeline.DCWB_WRITE.MemToReg;
-    cpu->pipeline.DCWB_READ.RegWrite = cpu->pipeline.DCWB_WRITE.RegWrite;
-    cpu->pipeline.DCWB_READ.ALUResult = cpu->pipeline.DCWB_WRITE.ALUResult;
-    cpu->pipeline.DCWB_READ.LWDataValue = cpu->pipeline.DCWB_WRITE.LWDataValue;
-    cpu->pipeline.DCWB_READ.WriteRegNum = cpu->pipeline.DCWB_WRITE.WriteRegNum;
+    cpu->pipeline.DCWB_READ.ALU_Result = cpu->pipeline.DCWB_WRITE.ALU_Result;
+    cpu->pipeline.DCWB_READ.LW_Data_Value = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
+    cpu->pipeline.DCWB_READ.Write_Reg_Num = cpu->pipeline.DCWB_WRITE.Write_Reg_Num;
 }
