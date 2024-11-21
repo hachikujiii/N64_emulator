@@ -3,12 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "cpu.h"
-#include "my_structs.h"
-
-void IC_stage(unsigned char* rom, N64 *n64); 
-void RF_stage(CPU *cpu); 
-void EX_stage(N64 *n64);
+#include "instruction_control.h"
 
 typedef struct {
     bool PCSrc;

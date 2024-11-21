@@ -2,6 +2,7 @@
 #define N64_H
 
 #include "cpu.h"
+#include "my_structs.h"
 
 typedef struct {
     PIF pif_rom;
