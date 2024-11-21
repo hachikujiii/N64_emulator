@@ -111,7 +111,7 @@ void print_pipeline(N64 *n64) {
                 instruction_type_to_string(n64->cpu.pipeline.EXDC_WRITE.instruction_control.type),
                 access_type_to_string(n64->cpu.pipeline.EXDC_WRITE.instruction_control.memAccess));
     printf("ALUResult = %X, SWValue = %X, WriteRegNum = %d\n\n",
-                n64->cpu.pipeline.EXDC_WRITE.ALUResult, n64->cpu.pipeline.EXDC_WRITE.SWValue, n64->cpu.pipeline.EXDC_WRITE.WriteRegNum);
+                n64->cpu.pipeline.EXDC_WRITE.ALU_Result, n64->cpu.pipeline.EXDC_WRITE.SW_Value, n64->cpu.pipeline.EXDC_WRITE.Write_Reg_Num);
 
     printf("EX/DC Read\n");
     printf("-----------\n");
@@ -120,7 +120,7 @@ void print_pipeline(N64 *n64) {
                 instruction_type_to_string(n64->cpu.pipeline.EXDC_READ.instruction_control.type),
                 access_type_to_string(n64->cpu.pipeline.EXDC_READ.instruction_control.memAccess));
     printf("ALUResult = %X, SWValue = %X, WriteRegNum = %d\n\n",
-                n64->cpu.pipeline.EXDC_READ.ALUResult, n64->cpu.pipeline.EXDC_READ.SWValue, n64->cpu.pipeline.EXDC_READ.WriteRegNum);
+                n64->cpu.pipeline.EXDC_READ.ALU_Result, n64->cpu.pipeline.EXDC_READ.SW_Value, n64->cpu.pipeline.EXDC_READ.Write_Reg_Num);
 
 /* DATA CACHE / WRITE BACK */
 
@@ -131,7 +131,7 @@ void print_pipeline(N64 *n64) {
                 instruction_type_to_string(n64->cpu.pipeline.DCWB_WRITE.instruction_control.type),
                 access_type_to_string(n64->cpu.pipeline.DCWB_WRITE.instruction_control.memAccess));
     printf("LWDataValue = %X, ALUResult = %X, WriteRegNum = %d\n\n",
-                n64->cpu.pipeline.DCWB_WRITE.LWDataValue, n64->cpu.pipeline.DCWB_WRITE.ALUResult, n64->cpu.pipeline.DCWB_WRITE.WriteRegNum);
+                n64->cpu.pipeline.DCWB_WRITE.LW_Data_Value, n64->cpu.pipeline.DCWB_WRITE.ALU_Result, n64->cpu.pipeline.DCWB_WRITE.Write_Reg_Num);
 
     printf("DC/WB Read\n");
     printf("-----------\n");
@@ -140,5 +140,5 @@ void print_pipeline(N64 *n64) {
                 instruction_type_to_string(n64->cpu.pipeline.DCWB_READ.instruction_control.type),
                 access_type_to_string(n64->cpu.pipeline.DCWB_READ.instruction_control.memAccess));
     printf("LWDataValue = %X, ALUResult = %X, WriteRegNum = %d\n\n\n",
-                n64->cpu.pipeline.DCWB_READ.LWDataValue, n64->cpu.pipeline.DCWB_READ.ALUResult, n64->cpu.pipeline.DCWB_READ.WriteRegNum);           
+                n64->cpu.pipeline.DCWB_READ.LW_Data_Value, n64->cpu.pipeline.DCWB_READ.ALU_Result, n64->cpu.pipeline.DCWB_READ.Write_Reg_Num);           
 }

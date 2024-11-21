@@ -3,11 +3,11 @@
 #include <stdint.h>
 #include <string.h>
 #include "my_structs.h"
+#include "rom_loading.h"
 #include "n64_pipeline.h"
 #include "mapping.h"
 #include "debug_sys.h"
 #include "page_table.h"
-#include "instruction_control.c"
 #include "instruction_control.h"
 
 
@@ -21,10 +21,10 @@ void RF_stage(CPU *cpu);
 void EX_stage(N64 *n64);
 bool inRange( uint64_t address, uint64_t start, uint64_t end);
 uint32_t map_virtual_address(CPU *cpu, uint32_t virtual_address);
-void Copy_write_to_read(CPU *cpu);
-int load_roms(N64 **n64, Cartridge *cartridge);
-void boot_sim(N64 *n64);
 uint32_t direct_map(uint32_t virtual_address, uint32_t segment_start);
+void Copy_write_to_read(CPU *cpu);
+void boot_sim(N64 *n64);
+
 
 int main(int argc, char *argv[]) {
 
@@ -43,7 +43,8 @@ int main(int argc, char *argv[]) {
     printf("initializing complete!\n");
     memset(n64->cpu.gpr, 0, sizeof(n64->cpu.gpr));
     memset(n64->cpu.fpr, 0, sizeof(n64->cpu.fpr));
-    boot_sim(n64);
+    //boot_sim(n64);
+
 
     n64->cpu.PC = 0xBFC00000;
     print_cpu(n64);
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]) {
     return 1;
     while(true) {
             
-        //initialize
+        
             
         //pif, bootloader, pc, set all specific register values and control signals
 
@@ -68,69 +69,6 @@ int main(int argc, char *argv[]) {
 
     }     
 
-}
-
-int load_roms(N64 **n64, Cartridge *cartridge) {
-
-    cartridge->ROM = (unsigned char *)malloc(ROM_SIZE * sizeof(unsigned char));
-    if (cartridge->ROM == NULL) {
-        fprintf(stderr, "Memory allocation for ROM failed\n");
-        return -1;
-    }
-
-    //open rom dump file (.bin)
-    FILE *binfile = fopen("OcarinaOfTime.bin", "rb");
-    if(!binfile) {
-        fprintf(stderr, "Failed to open .bin file");
-        free(cartridge->ROM);
-        return -1;
-    }
-
-    size_t bytesRead = fread(cartridge->ROM, sizeof(unsigned char), ROM_SIZE, binfile);
-    if (bytesRead != ROM_SIZE) {
-        //Handle incomplete read
-        fprintf(stderr, "Failed to read the entire cartridge file\n");
-        fclose(binfile);
-        free(cartridge->ROM);
-        return -1;
-    }
-    fclose(binfile);
-
-    *n64 = (N64*) malloc(sizeof(N64));
-    if (*n64 == NULL) {
-        fprintf(stderr, "memory allocation for N64 failed\n");
-        free(cartridge->ROM);
-        return -1;
-    }
-
-    (*n64)->pif_rom.data = (unsigned char *)malloc(PIF_ROM_SIZE * sizeof(unsigned char));
-    if((*n64)->pif_rom.data == NULL) {
-        fprintf(stderr, "Memory allocation for PIF ROM failed\n");
-        free(cartridge->ROM);
-        free(*n64);
-        return -1;
-    }
-
-    FILE *pif_file = fopen("n64_pif.bin", "rb");
-    if(!pif_file) {
-        fprintf(stderr, "Failed to open pif rom file");
-        free(cartridge->ROM);
-        free(*n64);
-        return -1;
-    }
-
-    size_t pif_bytes_read = fread((*n64)->pif_rom.data, sizeof(unsigned char), PIF_ROM_SIZE, pif_file);
-    if(pif_bytes_read != PIF_ROM_SIZE) {
-        fprintf(stderr, "Failed to read PIF ROM\n");
-        fclose(pif_file);
-        free(cartridge->ROM);
-        free(*n64);
-        return -1;
-    }
-    fclose(pif_file);
-    
-    printf("loaded rom\n");
-    return 0; //success
 }
 
 void IC_stage(unsigned char *rom, N64 *n64) {
@@ -194,6 +132,7 @@ void EX_stage(N64 *n64) {
     }
 }
 
+//apparently this is what should be loaded after PIF is done but we'll see...
 void boot_sim(N64 *n64) {
 
     //hardcode values to simulate PIF ROM

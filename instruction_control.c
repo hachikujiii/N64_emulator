@@ -83,6 +83,10 @@ Instruction decode(uint32_t inst) {
     return new_instruction;
 }
 
+int instruction_exception(CPU *cpu) {
+    printf("instruction error\n");
+    return 1;
+}
 
 void execute_r_format(CPU *cpu) {
 
@@ -91,8 +95,8 @@ void execute_r_format(CPU *cpu) {
     switch (function) {
 
         case 0x00: /*SLL*/
-            cpu->gpr[cpu->pipeline.RFEX_READ.rd] = 
-            (cpu->gpr[cpu->pipeline.RFEX_READ.rt] << cpu->pipeline.RFEX_READ.shamt);
+            cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rd] = 
+            (cpu->gpr[cpu->pipeline.RFEX_READ.rt] << cpu->pipeline.RFEX_READ.instruction.shamt);
             break;
         case 0x02: /*SRL*/
             cpu->gpr[cpu->pipeline.RFEX_READ.rd] = 
@@ -108,78 +112,78 @@ void execute_r_format(CPU *cpu) {
             n64->cpu.gpr[rd] = n64->cpu.gpr[rt] << shift_amt;
             break;
 
-                    case 0x06: /*SRLV*/
-                        uint32_t shift_amt = n64->cpu.gpr[rs] & 0x1F;
-                        n64->cpu.gpr[rd] = n64->cpu.gpr[rt] >> shift_amt;
-                        break;
+        case 0x06: /*SRLV*/
+            uint32_t shift_amt = n64->cpu.gpr[rs] & 0x1F;
+            n64->cpu.gpr[rd] = n64->cpu.gpr[rt] >> shift_amt;
+            break;
 
-                    case 0x07: /*SRAV*/
-                        uint32_t shift_amt = n64->cpu.gpr[rs] & 0x1F;
-                        n64->cpu.gpr[rd] = (int64_t) ((int32_t)n64->cpu.gpr[rt]) >> shift_amt;
-                        break;
+        case 0x07: /*SRAV*/
+            uint32_t shift_amt = n64->cpu.gpr[rs] & 0x1F;
+            n64->cpu.gpr[rd] = (int64_t) ((int32_t)n64->cpu.gpr[rt]) >> shift_amt;
+            break;
                     
-                    case 0x08: //jump to address stored in rs
-                        char *rs_reg = register_names[rs];
-                        printf("%X  JR  %s\n", PC, rs_reg);
-                        PC += 4;
-                        break;
+        case 0x08: //jump to address stored in rs
+            char *rs_reg = register_names[rs];
+            printf("%X  JR  %s\n", PC, rs_reg);
+            PC += 4;
+            break;
 
-                    case 0x09:
+        case 0x09:
 
-                        switch(shamt) {
+            switch(shamt) {
 
-                            case 0x1F: //jump to address stored in rs, store return in r31
-                            char *rs_reg = register_names[rs];
-                            printf("%X  JALR  %s\n", PC, rs_reg);
-                            PC += 4;
-                            break;
+                case 0x1F: //jump to address stored in rs, store return in r31
+                    char *rs_reg = register_names[rs];
+                    printf("%X  JALR  %s\n", PC, rs_reg);
+                    PC += 4;
+                    break;
 
-                        default: //JALR when shamt is something else
-                            char *rs_reg = register_names[rs];
-                            char *rd_reg = register_names[rd];
-                            printf("%X  JALR  %s, %s\n", PC, rd_reg, rs_reg);
-                            PC += 4;
-                            break;
+                default: //JALR when shamt is something else
+                    char *rs_reg = register_names[rs];
+                    char *rd_reg = register_names[rd];
+                    printf("%X  JALR  %s, %s\n", PC, rd_reg, rs_reg);
+                    PC += 4;
+                    break;
 
-                        }
+            }
 
-                    case 0x0C:
-                        printf("%X  SYSCALL\n", PC);
-                        PC += 4;
-                        break;
+        case 0x0C:
+            printf("%X  SYSCALL\n", PC);
+            PC += 4;
+            break;
 
-                    case 0x0D:
-                        printf("%X  BREAK\n", PC);
-                        PC += 4;
-                        break;
+        case 0x0D:
+            printf("%X  BREAK\n", PC);
+            PC += 4;
+            break;
 
-                    case 0x10: /*MFHI*/
-                        n64->cpu.gpr[rd] = n64->cpu.HI;  //HAZARD, if any two instructions following mfhi modify hi
-                        break;
+        case 0x10: /*MFHI*/
+            n64->cpu.gpr[rd] = n64->cpu.HI;  //HAZARD, if any two instructions following mfhi modify hi
+            break;
                     
-                    case 0x11: /*MTHI*/
-                        n64->cpu.HI = n64->cpu.gpr[rs]; 
-                        break;
+        case 0x11: /*MTHI*/
+            n64->cpu.HI = n64->cpu.gpr[rs]; 
+            break;
 
-                    case 0x12: /*MFLO*/
-                        n64->cpu.gpr[rd] = n64->cpu.LO;  //HAZARD, if any two instructions following mfhi modify lo
-                        break;
+        case 0x12: /*MFLO*/
+            n64->cpu.gpr[rd] = n64->cpu.LO;  //HAZARD, if any two instructions following mfhi modify lo
+            break;
                     
-                    case 0x13: /*MTLO*/
-                        n64->cpu.HL = n64->cpu.gpr[rs];  //HAZARD, if any two instructions following mfhi modify hi
-                        break;
+        case 0x13: /*MTLO*/
+            n64->cpu.HL = n64->cpu.gpr[rs];  //HAZARD, if any two instructions following mfhi modify hi
+            break;
                         
-                    case 0x14: /*DSLLV*/
-                        uint32_t shift_amt = n64->cpu.gpr[rs] & 0x3F;
-                        if(shift_amt > 63) {
-                            shift_amt = 63;
-                        }
-                        int64_t rt_val = n64->cpu.gpr[rt];
-                        int64_t result = rt_val << shift_amt;
-                        n64->cpu.gpr[rd] = result;
-                        break;
+        case 0x14: /*DSLLV*/
+            uint32_t shift_amt = n64->cpu.gpr[rs] & 0x3F;
+            if(shift_amt > 63) {
+                shift_amt = 63;
+            }
+            int64_t rt_val = n64->cpu.gpr[rt];
+            int64_t result = rt_val << shift_amt;
+            n64->cpu.gpr[rd] = result;
+            break;
 
-                    case 0x16: /*DSRLV*/
+        case 0x16: /*DSRLV*/
                         uint32_t shift_amt = n64->cpu.gpr[rs] & 0x3F;
                         uint64_t rt_val = n64->cpu.gpr[rt];
                         uint64_t result = rt_val >> shift_amt;
@@ -517,10 +521,10 @@ void BEQ(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
     int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
-    uint32_t j_target = ((extended_offset << 2) + cpu->delay_slot);
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
     if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] == cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
-        cpu->PC = j_target;
+        cpu->PC = cpu->PC + b_target;
     }
 }
 
@@ -528,26 +532,210 @@ void BNEQ(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
     int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
-    uint32_t j_target = ((extended_offset << 2) + cpu->delay_slot);
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
     if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] != cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
-        cpu->PC = j_target;
+        cpu->PC = cpu->PC + b_target;
     }
 }
 
 void BLEZ(CPU *cpu) {
     cpu->delay_slot = cpu->PC + 4;
     int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
-    uint32_t j_target = ((extended_offset << 2) + cpu->delay_slot);
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
     if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] <= 0) {
-        cpu->PC = j_target;
+        cpu->PC = cpu->PC + b_target;
     }
+}
+
+void BGTZ(CPU *cpu) {
+    cpu->delay_slot = cpu->PC + 4;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
+
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] > 0) {
+        cpu->PC = cpu->PC + b_target;
+    }
+}
+
+void ADDI(CPU *cpu) {
+    
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    int64_t rs_val = (int64_t)cpu.pipeline.RFEX_READ.instruction.rs_val;
+    int64_t result = rs_val + SE_Immediate;
+
+    //TODO: handle int overflow...
+    if ((rs_val > 0 && SE_Immediate > 0 && result < 0) || 
+        (rs_val < 0 && SE_Immediate < 0 && result > 0)) {
+        //handle_overflow_exception(cpu);
+        printf("addi overflow :(\n");
+        return 1;
+    }
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (uint64_t)result;                  
+}
+
+void ADDIU(CPU *cpu) {
+
+    int16_t immediate = cpu->pipeline.RFEX_READ.instruction.immediate;
+    int64_t SE_Immediate = (int64_t)immediate;
+    int64_t rs_val = (int64_t)cpu.pipeline.RFEX_READ.instruction.rs_val;
+    int64_t result = rs_val + SE_Immediate;
+
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (uint64_t)result; 
+}
+
+void SLTI(CPU *cpu) {
+
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
+    if(rs_val < SE_immediate) {
+        cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 1;
+    } else {
+        cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 0;
+    }
+}
+
+void SLTIU(CPU *cpu) {
+
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+
+    if(rs_val < (uint64_t)SE_immediate) {
+        cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 1;
+    } else {
+        cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = 0;
+    }
+}
+
+void ANDI(CPU *cpu) {
+
+    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t result = rs_val & ZE_Immediate;
+
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = result;   
+}
+
+void ORI(CPU *cpu) {
+
+    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t result = rs_val | ZE_Immediate;
+
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = result; 
+}
+
+void XORI(CPU *cpu) {
+
+    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t result = rs_val ^ ZE_Immediate;
+
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = result; 
 }
 
 void LUI(CPU *cpu) {
 
-    int32_t imm = (int32_t)cpu->pipeline.RFEX_READ.instruction.immediate << 16;
-    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (int64_t) imm;
+    int16_t immediate = cpu->pipeline.RFEX_READ.instruction.immediate;
+    int64_t SE_immediate = (int64_t)immediate << 16;
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (uint64_t)SE_immediate;
 }
 
+void BEQL(CPU *cpu) {
+
+    cpu->delay_slot = cpu->PC + 4;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
+
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] == cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
+        cpu->PC = cpu->PC + b_target;
+    }
+}
+
+void BNEQL(CPU *cpu) {
+
+    cpu->delay_slot = cpu->PC + 4;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
+
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] != cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
+        cpu->PC = cpu->PC + b_target;
+    }
+}
+
+void BLEZL(CPU *cpu) {
+
+    cpu->delay_slot = cpu->PC + 4;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
+
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] <= 0) {
+        cpu->PC = cpu->PC + b_target;
+    }
+}
+
+void BGTZL(CPU *cpu) {
+
+    cpu->delay_slot = cpu->PC + 4;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
+
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] > 0) {
+        cpu->PC = cpu->PC + b_target;
+    }
+}
+
+void DADDI(CPU *cpu) {
+
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    int64_t result = SE_Immediate + cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs];
+    if((result > INT64_MAX) || (result < INT64_MIN)) {
+    /*handle errors and exceptions*/
+    } else {
+        cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (uint64_t)result;
+    }
+}
+
+void DADDIU(CPU *cpu) {
+
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
+    int64_t result = SE_Immediate + cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs];
+    
+    cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt] = (uint64_t)result;
+}
+
+void LDL(CPU *cpu) {
+
+    //incomplete until i know i need to finish it
+    int64_t SE_Offset = (int64_t)cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    uint64_t base = cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs];
+    int64_t target = base + SE_Offset;
+
+    int byte_offset = target % 8; 
+    int bytes_to_load = 8 - byte_offset;
+    //this is where ALU_Result would get stored!
+    printf("LDL HAPPENING LOL\n");
+}
+
+void LDR(CPU *cpu) {
+
+    //incomplete until i know i need to finish it
+    printf("LDR HAPPENING LOL\n");
+}
+
+LB
+LH
+LWL
+LW
+LBU
+LHU
+LWR
+LWU
+SB
+SH
+SWL
+SW
+SDL
+SDR
+SWR

@@ -2,6 +2,7 @@
 #define INSTRUCTION_CONTROL_H
 #include <stdio.h>
 #include "my_structs.h"
+#include "instruction_control.c"
 
 typedef enum {
     LOAD, STORE, ALU, BRANCH, JUMP, COPROC, SPECIAL, INVALID
@@ -21,6 +22,9 @@ typedef struct {
     Access_Type memAccess;
     void (*execute)(CPU *cpu);
 } Instruction_Control;
+
+//OP CODES
+extern Instruction_Control opcode_table[64];
 
 //opcode_table calls
 void execute_r_format(CPU *cpu);
@@ -69,8 +73,5 @@ void SC(CPU *cpu);
 void SCD(CPU *cpu);
 void SD(CPU *cpu);
 void instruction_exception(CPU *cpu);
-
-//OP CODES
-extern Instruction_Control opcode_table[64];
 
 #endif

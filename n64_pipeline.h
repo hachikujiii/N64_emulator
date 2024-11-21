@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "instruction_control.h"
 
 typedef struct {
-    
     uint32_t instruction;
     uint8_t opcode;
     uint8_t rs; 
@@ -33,29 +33,24 @@ typedef struct {
     bool RegDst;
     bool ALUSrc;
 
-    bool jump;
-    bool branch;
-    bool zero;
     Instruction_Control control;
     Instruction instruction;
 } RFEX_Pipeline;
 
 typedef struct {
+    uint64_t ALU_Result;
+    uint64_t SW_Value;
+    uint64_t Write_Reg_Num;
 
-    int ALUResult;
-    int SWValue;
-    int WriteRegNum;
     Instruction_Control control;
     Instruction instruction;
 } EXDC_Pipeline;
 
 typedef struct {
-    bool MemToReg;
-    bool RegWrite;
+    uint64_t ALU_Result;
+    uint64_t LW_Data_Value;
+    uint64_t Write_Reg_Num;
 
-    int ALUResult;
-    int LWDataValue;
-    int WriteRegNum;
     Instruction_Control control;
     Instruction instruction;
 } DCWB_Pipeline;
