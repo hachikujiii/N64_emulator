@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build N64 Emulator",
+            "type": "shell",
+            "command": "make",  // This is how your project is built
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the N64 Emulator project"
+        }
+    ]
+}
