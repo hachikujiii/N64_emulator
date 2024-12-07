@@ -1,4 +1,5 @@
 #include "mmu.h"
+#include "cpu.h"
 
 
 bool inRange (uint64_t address, uint64_t start, uint64_t end) {
@@ -6,7 +7,7 @@ bool inRange (uint64_t address, uint64_t start, uint64_t end) {
     return start <= address && address <= end;
 }
 
-uint32_t map_virtual_address(MMU *mmu, uint32_t virtual_address) {
+uint32_t map_virtual(MMU *mmu, uint32_t virtual_address) {
 
     //if (inRange(virtual_address, KUSEG_START, KUSEG_END)) {
         //User segment TLB mapped
@@ -32,14 +33,16 @@ uint32_t map_virtual_address(MMU *mmu, uint32_t virtual_address) {
     //}
 
     //invalid address
+    printf("unable to map virtual address\n");
     return -1;
 }
 
 uint32_t direct_map(uint32_t virtual_address, uint32_t segment_start) {
+
     return virtual_address - segment_start;
 }
 
-//uint32_t map_physical_address(CPU *cpu, uint32_t physical_address) {
+uint32_t map_physical(MMU *mmu, uint32_t physical_address) {
 
     //if (inRange(physical_address, RDRAM_START, RDRAM_END)) {
         //RDRAM - built in
@@ -77,13 +80,24 @@ uint32_t direct_map(uint32_t virtual_address, uint32_t segment_start) {
         //SRAM is mapped here
     //} else if (inRange(physical_address, CART_D1A2_START, CART_D1A2_END)) {
         //ROM is mapped here
-    //} else if (inRange(physical_address, PIF_BOOT_ROM_START, PIF_BOOT_ROM_END)) {
+    if (inRange(physical_address, PIF_BOOT_ROM_START, PIF_BOOT_ROM_END)) {
         //first code run on boot, baked into hardware
-    //} else if (inRange(physical_address, PIF_RAM_START, PIF_RAM_END)) {
+        uint32_t offset = physical_address - PIF_BOOT_ROM_START;
+        uint32_t *inst_p = (uint32_t *)(mmu->memory->pif_rom.data + offset);
+        uint32_t inst = *inst_p;
+        return inst;
+    }
+    //if (inRange(physical_address, PIF_RAM_START, PIF_RAM_END)) {
         //used to communicate with PIF chip (controller and mem cards)
+    //    
+    //}
+    else {
+        printf("unable to get physical");
+        return 1;
+    }
     //} else if (inRange(physical_address, CART_D1A3_START, CART_D1A3_END)) {
         //
     //} else if (inRange(physical_address, EXSYS_DEV_START, EXSYS_DEV_END)) {
 
     //}
-//}
+}

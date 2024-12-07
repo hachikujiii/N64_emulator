@@ -22,15 +22,39 @@ void print_regs(CPU *cpu) {
 
 void print_cpu(CPU *cpu) {
 
+    if(cpu == NULL) {
+        printf("CPU is NULL\n");
+        return;
+    }
     printf("general purpose registers:\n");
     print_regs(cpu);
     printf("\n");
 
     printf("floating point registers:\n");
     //to do
-    printf("PC = %llX\n", cpu->PC);
-    printf("HI = %llX\n", cpu->HI);
-    printf("LO = %llX\n", cpu->LO);
+    printf("PC = 0x%llX\n", cpu->PC);
+    printf("HI = 0x%llX\n", cpu->HI);
+    printf("LO = 0x%llX\n", cpu->LO);
+}
+
+void print_instruction(Instruction instruction) {
+
+    uint32_t big_endian_instruction = 
+        ((instruction.instruction & 0xFF) << 24) |
+        ((instruction.instruction & 0xFF00) << 8) |
+        ((instruction.instruction & 0xFF0000) >> 8) |
+        ((instruction.instruction & 0xFF000000) >> 24);
+
+    printf("Instruction decoded:\n");
+    printf("instruction: 0x%08X\n", big_endian_instruction);
+    printf("opcode: 0x%02X\n", instruction.opcode);
+    printf("rs (source reg): %d\n", instruction.rs);
+    printf("rt (temp reg): %d\n", instruction.rt);
+    printf("rd (dest reg): %d\n", instruction.rd);
+    printf("shamt: %X\n", instruction.shamt);
+    printf("function: %X\n", instruction.function);
+    printf("immediate: %X\n", instruction.immediate);
+    printf("\n");
 }
 
 const char* format_type_to_string(Format_Type f_type) { 
@@ -66,6 +90,22 @@ const char* access_type_to_string(Access_Type memAccess) {
         case MEM_WRITE: return "MEM_WRITE"; 
         default: return "UNKNOWN"; 
     } 
+}
+
+void print_pif_ram(Memory *memory) {
+
+    // Print out the PIF RAM in hex format (byte by byte)
+    for (size_t i = 0; i < PIF_ROM_SIZE; i++) {
+        uint8_t byte = memory->pif_rom.data[i];  // Access PIF RAM byte by byte
+        printf("%02X ", byte);
+        
+        // Print 16 bytes per line for readability
+        if ((i + 1) % 16 == 0) {
+            printf("\n");
+        }
+    }
+
+    printf("\n");
 }
 
 void print_pipeline(CPU *cpu) {

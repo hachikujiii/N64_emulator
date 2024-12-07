@@ -2,7 +2,7 @@
 #define CP0_H
 
 #include <stdint.h>
-#include "mmu.h"
+#include "tlb.h"
 
 typedef struct {
     /*32 registers*/
@@ -30,7 +30,7 @@ typedef struct {
     uint32_t TagHi;
     uint32_t ErrorEPC;
     /* 7, 21-25, 31 reserved for future use*/
-    //TLB tlb;
+    TLB tlb;
 } CP0;
 
 #endif

@@ -1,12 +1,12 @@
 # Compiler and Flags
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -g -Wall 
 
 # Output executable name
 TARGET = n64_emulator
 
 # List of source files
-SOURCES = main.c pipeline.c rom_loading.c debug_sys.c instruction_control.c memory.c cp0.c cpu.c mmu.c
+SOURCES = main.c n64.c pipeline.c rom_loading.c debug_sys.c instruction_control.c memory.c cp0.c cpu.c mmu.c
 
 # Automatically create object files from source files
 OBJECTS = $(SOURCES:.c=.o)

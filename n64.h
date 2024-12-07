@@ -10,4 +10,6 @@ typedef struct {
 //  RCP rcp;         // RCP object
 } N64;
 
+int cold_boot(N64 *n64);
+
 #endif

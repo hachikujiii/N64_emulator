@@ -1,5 +1,7 @@
-#include "memory.h"
 #include <stdio.h>
+#include "memory.h"
+#include "rom_loading.h"
+
 
 int initialize_memory(Memory *memory) {
 
@@ -16,6 +18,7 @@ int initialize_memory(Memory *memory) {
         return -1;
     }
 
+    load_roms(memory);
     return 0;
 }
 

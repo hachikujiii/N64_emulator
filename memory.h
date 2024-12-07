@@ -12,7 +12,6 @@
 typedef struct {
     PIF pif_rom;
     Cartridge cartridge;
-    uint8_t *cartridge_rom;
 } Memory;
 
 int initialize_memory(Memory *memory);

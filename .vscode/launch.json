@@ -7,9 +7,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/n64_emulator",  // Path to the executable
             "args": [],
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
-            "externalConsole": true,
+            "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "C:/msys64/usr/bin/gdb.exe", // If you're using gdb on Windows, change this path
             "preLaunchTask": "Build N64 Emulator", // Ensure this matches the task name in tasks.json

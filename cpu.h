@@ -1,8 +1,8 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include "mmu.h"
 #include "cp0.h"
+#include "mmu.h"
 #include "pipeline.h"
 
 #define ICACHE_SIZE        0x4000 //16KB Instruction Cache
@@ -34,7 +34,7 @@ typedef struct {
 // CPU fetch function example
 uint32_t fetch_instruction(CPU *cpu);
 void execute_instruction(uint32_t instruction);
-void IC_stage(CPU *cpu, Memory *memory);
+void IC_stage(CPU *cpu);
 void RF_stage(CPU *cpu);
 void EX_stage(CPU *cpu);
 void ReadToWrite(CPU *cpu);
