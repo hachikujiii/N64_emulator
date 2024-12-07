@@ -22,10 +22,11 @@ int main(int argc, char *argv[]) {
         
         IC_stage(&n64->cpu);
         RF_stage(&n64->cpu);
+        print_instruction(n64->cpu.pipeline.RFEX_READ.instruction);
         EX_stage(&n64->cpu);
         //DC_stage(n64);
         //WB_stage(n64);
-        //print
+        print_cpu(&n64->cpu);
         ReadToWrite(&n64->cpu);
 
         //special cases

@@ -5,22 +5,14 @@ uint32_t fetch_instruction(CPU *cpu) {
     uint32_t physical_address = map_virtual(cpu->mmu, cpu->PC);
     uint32_t instruction = map_physical(cpu->mmu, physical_address);
 
-    uint32_t big_endian_instruction = 
-        ((instruction & 0xFF) << 24) |
-        ((instruction & 0xFF00) << 8) |
-        ((instruction & 0xFF0000) >> 8) |
-        ((instruction & 0xFF000000) >> 24);
-
-    printf("Fetched Instruction (PC: 0x%016llX, Physical: 0x%08X): 0x%08X\n",
-           cpu->PC, physical_address, big_endian_instruction);
-
     return instruction;
 }
 
 void IC_stage(CPU *cpu) {
 
     cpu->pipeline.ICRF_WRITE.instruction = fetch_instruction(cpu);
-
+    cpu->delay_slot = cpu->PC + 4;
+    cpu->PC = cpu->delay_slot;
 }
 
 void RF_stage(CPU *cpu) {

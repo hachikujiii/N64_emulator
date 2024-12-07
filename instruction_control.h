@@ -39,6 +39,7 @@ typedef struct {
 } Instruction;
 
 //OP CODES
+uint32_t byte_swap(uint32_t inst);
 Instruction decode(uint32_t inst);
 extern Access_Control opcode_flags[64];
 
