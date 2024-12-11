@@ -1,4 +1,4 @@
-#include "instruction_control.h"
+#include "control.h"
 #include "debug_sys.h"
 
 
@@ -17,7 +17,7 @@ void print_regs(CPU *cpu) {
         printf("Register %d = %llX\n", i, cpu->gpr[i]);
     }
     printf("\n");
-    printf("PC = %llX\n", cpu->PC);
+    printf("PC = 0x%llX\n", cpu->PC);
 }
 
 void print_cpu(CPU *cpu) {
@@ -32,9 +32,10 @@ void print_cpu(CPU *cpu) {
 
     printf("floating point registers:\n");
     //to do
-    printf("PC = 0x%llX\n", cpu->PC);
+    printf("\n");
     printf("HI = 0x%llX\n", cpu->HI);
     printf("LO = 0x%llX\n", cpu->LO);
+    printf("\n");
 }
 
 void print_instruction(Instruction instruction) {
@@ -51,9 +52,9 @@ void print_instruction(Instruction instruction) {
     printf("rs (source reg): %d\n", instruction.rs);
     printf("rt (temp reg): %d\n", instruction.rt);
     printf("rd (dest reg): %d\n", instruction.rd);
-    printf("shamt: %X\n", instruction.shamt);
-    printf("function: %X\n", instruction.function);
-    printf("immediate: %X\n", instruction.immediate);
+    printf("shamt: 0x%X\n", instruction.shamt);
+    printf("function: 0x%X\n", instruction.function);
+    printf("immediate: 0x%X\n", instruction.immediate);
     printf("\n");
 }
 
@@ -111,14 +112,15 @@ void print_pif_ram(Memory *memory) {
 void print_pipeline(CPU *cpu) {
 
 /* NSTRUCTION CACHE / REGISTER FETCH */
-
+    uint32_t instruction_write = byte_swap(cpu->pipeline.ICRF_WRITE.instruction);
+    uint32_t instruction_read = byte_swap(cpu->pipeline.ICRF_READ.instruction);
     printf("IC/RF Write\n");
     printf("-----------\n");
-    printf("Instruction = 0x%08X\n\n", cpu->pipeline.ICRF_WRITE.instruction);
+    printf("Instruction = 0x%08X\n\n", instruction_write);
 
     printf("IC/RF Read\n");
     printf("----------\n");
-    printf("Instruction = 0x%08X\n\n", cpu->pipeline.ICRF_READ.instruction);
+    printf("Instruction = 0x%08X\n\n", instruction_read);
 
 /* REGISTER FETCH / EXECUTION */
 

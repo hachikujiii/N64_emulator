@@ -15,7 +15,7 @@ typedef struct {
     //CP1 cp1; /*Floating Point Unit*/
     uint64_t gpr[32];
     double fpr[32]; 
-    uint64_t PC; /*= init_address?*/
+    uint64_t PC;
     uint64_t delay_slot;
     uint64_t HI, LO;
     bool LLbit;
@@ -28,15 +28,121 @@ typedef struct {
     Pipeline pipeline;
 
     // Opcode function table 
-    void (*instruction_table[64])();
+    //TODO:
 } CPU;
 
+typedef enum {
+    REG_HI = 32,    // Special register HI (index 32 for example)
+    REG_LO = 33     // Special register LO (index 33 for example)
+} SpecialRegisters;
+
+extern void (*instruction_table[64])(CPU *);
+extern void (*function_table[64])(CPU *);
 // CPU fetch function example
 uint32_t fetch_instruction(CPU *cpu);
-void execute_instruction(uint32_t instruction);
+void execute_instruction(CPU *cpu);
+void init_function_table();
 void IC_stage(CPU *cpu);
 void RF_stage(CPU *cpu);
 void EX_stage(CPU *cpu);
+void DC_stage(CPU *cpu);
+void WB_stage(CPU *cpu);
 void ReadToWrite(CPU *cpu);
+
+//opcode functions
+void instruction_exception(CPU *cpu);
+void R_FORMAT(CPU *cpu);
+void J(CPU *cpu);
+void JAL(CPU* cpu);
+void BEQ(CPU *cpu);
+void BNEQ(CPU *cpu);
+void BLEZ(CPU *cpu);
+void BGTZ(CPU *cpu);
+void ADDI(CPU *cpu);
+void ADDIU(CPU *cpu);
+void SLTI(CPU *cpu);
+void SLTIU(CPU *cpu);
+void ANDI(CPU *cpu);
+void ORI(CPU *cpu);
+void XORI(CPU *cpu);
+void LUI(CPU *cpu);
+void MTC0(CPU *cpu);
+void MTC1(CPU *cpu);
+void BEQL(CPU *cpu);
+void BNEQL(CPU *cpu);
+void BLEZL(CPU *cpu);
+void BGTZL(CPU *cpu);
+void DADDI(CPU *cpu);
+void DADDIU(CPU *cpu);
+void LDL(CPU *cpu);
+void LDR(CPU *cpu);
+void LB(CPU *cpu);
+void LH(CPU *cpu);
+void LWL(CPU *cpu);
+void LW(CPU *cpu);
+void LBU(CPU *cpu);
+void LHU(CPU *cpu);
+void LWR(CPU *cpu);
+void LWU(CPU *cpu);
+void SB(CPU *cpu);
+void SH(CPU *cpu);
+void SWL(CPU *cpu);
+void SW(CPU *cpu);
+void SDL(CPU *cpu);
+void SDR(CPU *cpu);
+void SWR(CPU *cpu);
+
+//r format function codes
+void SLL(CPU *cpu);
+void SRL(CPU *cpu);
+void SRA(CPU *cpu);
+void SLLV(CPU *cpu);
+void SRLV(CPU *cpu);
+void SRAV(CPU *cpu);
+void JR(CPU *cpu);
+void JALR(CPU *cpu);
+void SYSCALL(CPU *cpu);
+void BREAK(CPU *cpu);
+void MFHI(CPU *cpu);
+void MTHI(CPU *cpu);
+void MFLO(CPU *cpu);
+void MTLO(CPU *cpu);
+void DSLLV(CPU* cpu);
+void DSRLV(CPU *cpu);
+void DSRAV(CPU *cpu);
+void MULT(CPU *cpu);
+void MULTU(CPU *cpu);
+void DIV(CPU *cpu);
+void DIVU(CPU *cpu);
+void DMULT(CPU *cpu);
+void DMULTU(CPU *cpu);
+void DDIV(CPU *cpu);
+void DDIVU(CPU *cpu);
+void ADD(CPU *cpu);
+void ADDU(CPU *cpu);
+void SUB(CPU *cpu);
+void SUBU(CPU *cpu);
+void AND(CPU *cpu);
+void OR(CPU *cpu);
+void XOR(CPU *cpu);
+void NOR(CPU *cpu);
+void SLT(CPU *cpu);
+void SLTU(CPU *cpu);
+void DADD(CPU *cpu);
+void DADDU(CPU *cpu);
+void DSUB(CPU *cpu);
+void DSUBU(CPU *cpu);
+void TGE(CPU *cpu);
+void TGEU(CPU *cpu);
+void TLT(CPU *cpu);
+void TLTU(CPU *cpu);
+void TE(CPU *cpu);
+void TNE(CPU *cpu);
+void DSLL(CPU *cpu);
+void DSRL(CPU *cpu);
+void DSRA(CPU *cpu);
+void DSLL32(CPU *cpu);
+void DSRL32(CPU *cpu);
+void DSRA32(CPU *cpu);
 
 #endif

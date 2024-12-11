@@ -1,7 +1,7 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
-#include "instruction_control.h"
+#include "control.h"
 #include <stdbool.h>
 
 typedef struct {
@@ -13,7 +13,7 @@ typedef struct {
 } ICRF_Pipeline;
 
 typedef struct {
-    Access_Control control;
+    Control control;
     Instruction instruction;
     bool RegDst;
     bool ALUSrc;
@@ -21,7 +21,7 @@ typedef struct {
 } RFEX_Pipeline;
 
 typedef struct {
-    Access_Control control;
+    Control control;
     Instruction instruction;
 
     uint64_t ALU_Result;
@@ -31,7 +31,7 @@ typedef struct {
 } EXDC_Pipeline;
 
 typedef struct {
-    Access_Control control;
+    Control control;
     Instruction instruction;
 
     uint64_t ALU_Result;

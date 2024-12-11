@@ -1,5 +1,5 @@
-#ifndef INSTRUCTION_CONTROL_H
-#define INSTRUCTION_CONTROL_H
+#ifndef CONTROL_H
+#define CONTROL_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -20,7 +20,7 @@ typedef struct {
     Format_Type f_type;
     Instruction_Type type;
     Access_Type memAccess;
-} Access_Control;
+} Control;
 
 typedef struct {
     uint32_t instruction;
@@ -41,6 +41,6 @@ typedef struct {
 //OP CODES
 uint32_t byte_swap(uint32_t inst);
 Instruction decode(uint32_t inst);
-extern Access_Control opcode_flags[64];
+Control set_flags(uint8_t opcode);
 
 #endif

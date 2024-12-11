@@ -17,18 +17,21 @@ int main(int argc, char *argv[]) {
 
     cold_boot(n64);
     print_pif_ram(n64->cpu.mmu->memory);
-
-    while(true) {  
+    printf("INITIAL CPU STATE:\n");
+    print_cpu(&n64->cpu);
+    printf("\n\n");
+    int i = 5;
+    while(i > 0) {  
         
         IC_stage(&n64->cpu);
         RF_stage(&n64->cpu);
-        print_instruction(n64->cpu.pipeline.RFEX_READ.instruction);
         EX_stage(&n64->cpu);
-        //DC_stage(n64);
-        //WB_stage(n64);
+        DC_stage(&n64->cpu);
+        WB_stage(&n64->cpu);
         print_cpu(&n64->cpu);
+        print_pipeline(&n64->cpu);
         ReadToWrite(&n64->cpu);
-
+        i--;
         //special cases
         // ERET  0100 0010 0000 0000 0000 0000 0001 1000
     }     
