@@ -20,16 +20,16 @@ int main(int argc, char *argv[]) {
     printf("INITIAL CPU STATE:\n");
     print_cpu(&n64->cpu);
     printf("\n\n");
-    int i = 5;
-    while(i > 0) {  
+    int i = 6;
+    while(i > 0) { 
         
         IC_stage(&n64->cpu);
         RF_stage(&n64->cpu);
         EX_stage(&n64->cpu);
         DC_stage(&n64->cpu);
         WB_stage(&n64->cpu);
-        print_cpu(&n64->cpu);
         print_pipeline(&n64->cpu);
+        print_cpu(&n64->cpu);
         ReadToWrite(&n64->cpu);
         i--;
         //special cases

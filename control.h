@@ -5,20 +5,21 @@
 #include <stdint.h>
 
 typedef enum {
-    LOAD, STORE, ALU, BRANCH, JUMP, COPROC, SPECIAL, INVALID
-} Instruction_Type;
+    R_TYPE, I_TYPE, J_TYPE, REGIMM, TRAP, ERROR, NOP
+} Format_Type;
 
 typedef enum {
-    NO_MEM, MEM_READ, MEM_WRITE
+    LOAD, STORE, ALU, BRANCH, JUMP, SPECIAL, INVALID
+} Operation_Type;
+
+typedef enum {
+    NO_ACCESS, MEM_READ, MEM_WRITE, REG_READ, REG_WRITE, COPROC
 } Access_Type;
 
-typedef enum {
-    R_TYPE, I_TYPE, J_TYPE, REGIMM, TRAP, ERROR
-} Format_Type;
 
 typedef struct {
     Format_Type f_type;
-    Instruction_Type type;
+    Operation_Type type;
     Access_Type memAccess;
 } Control;
 
@@ -38,7 +39,6 @@ typedef struct {
     uint32_t jump_addr;
 } Instruction;
 
-//OP CODES
 uint32_t byte_swap(uint32_t inst);
 Instruction decode(uint32_t inst);
 Control set_flags(uint8_t opcode);

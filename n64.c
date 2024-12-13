@@ -28,7 +28,7 @@ int cold_boot(N64 *n64) {
 
     printf("initializing complete!\n");
     n64->cpu.PC = 0xBFC00000;
-
+    init_pipeline(&n64->cpu.pipeline);
     void init_function_table(CPU *cpu);
     return 0;
 
