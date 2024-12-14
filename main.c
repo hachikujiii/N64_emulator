@@ -18,9 +18,10 @@ int main(int argc, char *argv[]) {
     cold_boot(n64);
     print_pif_ram(n64->cpu.mmu->memory);
     printf("INITIAL CPU STATE:\n");
+    print_pipeline(&n64->cpu);
     print_cpu(&n64->cpu);
     printf("\n\n");
-    int i = 6;
+    int i = 8;
     while(i > 0) { 
         
         IC_stage(&n64->cpu);

@@ -13,8 +13,20 @@ typedef struct {
 } ICRF_Pipeline;
 
 typedef struct {
+    uint32_t instruction;
     Control control;
-    Instruction instruction;
+    uint8_t opcode;
+    uint8_t rs; 
+    uint8_t rt;
+    uint8_t rd;
+    uint8_t shamt;
+    uint8_t function;
+    int16_t immediate;
+    uint64_t rs_val;
+    uint64_t rt_val;
+    int32_t SEOffset;
+    uint32_t branch_addr;
+    uint32_t jump_addr;
 
     bool MemRead;
     bool MemToReg;
@@ -23,14 +35,13 @@ typedef struct {
     bool RegDst;
     bool ALUSrc;
 
-    uint8_t Source_Reg_Num;
+    uint8_t Read_Reg_Num;
     uint8_t Write_Reg_Num;
 
 } RFEX_Pipeline;
 
 typedef struct {
     Control control;
-    Instruction instruction;
     bool MemRead;
     bool MemToReg;
     bool MemWrite;
@@ -39,14 +50,13 @@ typedef struct {
     uint64_t ALU_Result;
     uint64_t SW_Value;
 
-    uint8_t Source_Reg_Num;
+    uint8_t Read_Reg_Num;
     uint8_t Write_Reg_Num;
 
 } EXDC_Pipeline;
 
 typedef struct {
     Control control;
-    Instruction instruction;
    
     bool MemWrite;
     bool RegWrite;

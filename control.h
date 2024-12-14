@@ -23,24 +23,6 @@ typedef struct {
     Access_Type memAccess;
 } Control;
 
-typedef struct {
-    uint32_t instruction;
-    uint8_t opcode;
-    uint8_t rs; 
-    uint8_t rt;
-    uint8_t rd;
-    uint8_t shamt;
-    uint8_t function;
-    int16_t immediate;
-    uint64_t rs_val;
-    uint64_t rt_val;
-    int32_t SEOffset;
-    uint32_t branch_addr;
-    uint32_t jump_addr;
-} Instruction;
-
 uint32_t byte_swap(uint32_t inst);
-Instruction decode(uint32_t inst);
-Control set_flags(uint8_t opcode);
 
 #endif

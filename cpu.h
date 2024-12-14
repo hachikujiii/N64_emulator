@@ -38,10 +38,12 @@ typedef enum {
 
 extern void (*instruction_table[64])(CPU *);
 extern void (*function_table[64])(CPU *);
+extern Control flags[64];
 // CPU fetch function example
 uint32_t fetch_instruction(CPU *cpu);
+void decode(Pipeline *pipeline);
 void execute_instruction(CPU *cpu);
-void init_function_table();
+void set_flags(Pipeline *pipeline);
 void IC_stage(CPU *cpu);
 void RF_stage(CPU *cpu);
 void EX_stage(CPU *cpu);

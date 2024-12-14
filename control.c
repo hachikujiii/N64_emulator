@@ -68,28 +68,7 @@ Control flags[64] = {
     [0x3F] = {I_TYPE,   STORE,    MEM_WRITE}
 };
 
-Control set_flags(uint8_t opcode) {
-    Control set = flags[opcode];
-    return set;
-}
-
 uint32_t byte_swap(uint32_t inst) {
     return ((inst & 0xFF) << 24) | ((inst & 0xFF00) << 8) |
            ((inst & 0xFF0000) >> 8) | ((inst & 0xFF000000) >> 24);
-}
-
-Instruction decode(uint32_t inst) {
-
-    inst = byte_swap(inst);
-    Instruction new_instruction;
-    new_instruction.instruction = inst;
-    new_instruction.opcode = (inst >> 26) & 0x3F;
-    new_instruction.rs = (inst >> 21) & 0x1F;
-    new_instruction.rt = (inst >> 16) & 0x1F;
-    new_instruction.rd = (inst >> 11) & 0x1F;
-    new_instruction.shamt = (inst >> 6) & 0x1F;
-    new_instruction.function = inst & 0x3F;
-    new_instruction.immediate = inst & 0xFFFF;
-
-    return new_instruction;
 }

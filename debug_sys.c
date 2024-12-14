@@ -63,24 +63,25 @@ void print_cpu(CPU *cpu) {
     printf("[30] ErrorEPC: 0x%llX\n", cpu->cp0.gpr[30]);
 }
 
-void print_instruction(Instruction instruction) {
+void print_instruction(Pipeline *pipeline) {
+
 
     uint32_t big_endian_instruction = 
-        ((instruction.instruction & 0xFF) << 24) |
-        ((instruction.instruction & 0xFF00) << 8) |
-        ((instruction.instruction & 0xFF0000) >> 8) |
-        ((instruction.instruction & 0xFF000000) >> 24);
+        ((pipeline->RFEX_WRITE.instruction & 0xFF) << 24) |
+        ((pipeline->RFEX_WRITE.instruction & 0xFF00) << 8) |
+        ((pipeline->RFEX_WRITE.instruction & 0xFF0000) >> 8) |
+        ((pipeline->RFEX_WRITE.instruction & 0xFF000000) >> 24);
 
-    printf("Instruction decoded:\n");
+    printf("\nInstruction decoded:\n");
     printf("instruction: 0x%08X\n", big_endian_instruction);
-    printf("opcode: 0x%02X\n", instruction.opcode);
-    printf("rs (source reg): %d\n", instruction.rs);
-    printf("rt (temp reg): %d\n", instruction.rt);
-    printf("rd (dest reg): %d\n", instruction.rd);
-    printf("shamt: 0x%X\n", instruction.shamt);
-    printf("function: 0x%X\n", instruction.function);
-    printf("immediate: 0x%X\n", instruction.immediate);
-    printf("\n");
+    printf("opcode: 0x%02X\n", pipeline->RFEX_WRITE.opcode);
+    printf("rs (source reg): %d\n", pipeline->RFEX_WRITE.rs);
+    printf("rt (temp reg): %d\n", pipeline->RFEX_WRITE.rt);
+    printf("rd (dest reg): %d\n", pipeline->RFEX_WRITE.rd);
+    printf("shamt: 0x%X\n", pipeline->RFEX_WRITE.shamt);
+    printf("function: 0x%X\n", pipeline->RFEX_WRITE.function);
+    printf("immediate: 0x%X\n", pipeline->RFEX_WRITE.immediate);
+    printf("\n\n");
 }
 
 const char* format_type_to_string(Format_Type f_type) { 
@@ -137,7 +138,7 @@ void print_pif_ram(Memory *memory) {
     printf("\n");
 }
 
-int counter = 1;
+int counter = 0;
 
 void print_pipeline(CPU *cpu) {
 printf("\n================================\n");
@@ -165,12 +166,11 @@ printf("================================\n\n");
     printf("Flags: MemRead = %d, MemToReg = %d, MemWrite = %d, RegWrite = %d, RegDst = %d\n", 
                 cpu->pipeline.RFEX_WRITE.MemRead, cpu->pipeline.RFEX_WRITE.MemToReg, cpu->pipeline.RFEX_WRITE.MemWrite, 
                 cpu->pipeline.RFEX_WRITE.RegWrite, cpu->pipeline.RFEX_WRITE.RegDst);
-    printf("Decoded Inst: rs_reg_num = %d, rt_reg_number = %d, rd_reg_number = %d | source = %d, dest = %d\n",
-                cpu->pipeline.RFEX_WRITE.instruction.rs, cpu->pipeline.RFEX_WRITE.instruction.rt, cpu->pipeline.RFEX_WRITE.instruction.rd, 
-                cpu->pipeline.RFEX_WRITE.Source_Reg_Num, cpu->pipeline.RFEX_WRITE.Write_Reg_Num); 
+    printf("Decoded Inst: rs_reg_num = %d, rt_reg_number = %d, rd_reg_number = %d\n",
+                cpu->pipeline.RFEX_WRITE.rs, cpu->pipeline.RFEX_WRITE.rt, cpu->pipeline.RFEX_WRITE.rd); 
     printf("Data: rs_value = 0x%llX, rt_value = 0x%llX, Immediate = 0x%08X\nFunction = 0x%X\n\n",
-                cpu->pipeline.RFEX_WRITE.instruction.rs_val, cpu->pipeline.RFEX_WRITE.instruction.rt_val, cpu->pipeline.RFEX_WRITE.instruction.immediate,
-                cpu->pipeline.RFEX_WRITE.instruction.function);
+                cpu->pipeline.RFEX_WRITE.rs_val, cpu->pipeline.RFEX_WRITE.rt_val, cpu->pipeline.RFEX_WRITE.immediate,
+                cpu->pipeline.RFEX_WRITE.function);
 
     printf("RF/EX Read\n");
     printf("----------\n");
@@ -181,12 +181,12 @@ printf("================================\n\n");
     printf("Flags: MemRead = %d, MemToReg = %d, MemWrite = %d, RegWrite = %d, RegDst = %d\n", 
                 cpu->pipeline.RFEX_READ.MemRead, cpu->pipeline.RFEX_READ.MemToReg, cpu->pipeline.RFEX_READ.MemWrite, 
                 cpu->pipeline.RFEX_READ.RegWrite, cpu->pipeline.RFEX_READ.RegDst);
-    printf("Decoded Inst: rs_reg_num = %d, rt_reg_number = %d, rd_reg_number = %d | source = %d, dest = %d\n",
-                cpu->pipeline.RFEX_READ.instruction.rs, cpu->pipeline.RFEX_READ.instruction.rt, cpu->pipeline.RFEX_READ.instruction.rd, 
-                cpu->pipeline.RFEX_READ.Source_Reg_Num, cpu->pipeline.RFEX_READ.Write_Reg_Num); 
+    printf("Decoded Inst: rs_reg_num = %d, rt_reg_number = %d, rd_reg_number = %d | read_reg = %d, dest = %d\n",
+                cpu->pipeline.RFEX_READ.rs, cpu->pipeline.RFEX_READ.rt, cpu->pipeline.RFEX_READ.rd, 
+                cpu->pipeline.RFEX_READ.Read_Reg_Num, cpu->pipeline.RFEX_READ.Write_Reg_Num); 
     printf("Data: rs_value = 0x%llX, rt_value = 0x%llX, Immediate = 0x%08X\nFunction = 0x%X\n\n",
-                cpu->pipeline.RFEX_READ.instruction.rs_val, cpu->pipeline.RFEX_READ.instruction.rt_val, cpu->pipeline.RFEX_READ.instruction.immediate,
-                cpu->pipeline.RFEX_READ.instruction.function);
+                cpu->pipeline.RFEX_READ.rs_val, cpu->pipeline.RFEX_READ.rt_val, cpu->pipeline.RFEX_READ.immediate,
+                cpu->pipeline.RFEX_READ.function);
 
 /* EXECUTION / DATA CACHE */
 

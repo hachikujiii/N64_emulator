@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include "control.h"
 
 uint32_t fetch_instruction(CPU *cpu) {
 
@@ -8,10 +9,97 @@ uint32_t fetch_instruction(CPU *cpu) {
     return instruction;
 }
 
+void decode(Pipeline *pipeline) {
+
+    if(pipeline->ICRF_READ.instruction == 0) {
+        pipeline->RFEX_WRITE.control.f_type = NOP;
+        pipeline->RFEX_WRITE.instruction = 0;
+        pipeline->RFEX_WRITE.opcode = 0;
+        pipeline->RFEX_WRITE.rs = 0;
+        pipeline->RFEX_WRITE.rt = 0;
+        pipeline->RFEX_WRITE.rd = 0;
+        pipeline->RFEX_WRITE.shamt = 0;
+        pipeline->RFEX_WRITE.function = 0;
+        pipeline->RFEX_WRITE.immediate = 0;
+        return;
+    }
+
+    uint32_t inst = byte_swap(pipeline->ICRF_READ.instruction); //big endian go brrrr
+    pipeline->RFEX_WRITE.opcode = (inst >> 26) & 0x3F;
+    pipeline->RFEX_WRITE.rs = (inst >> 21) & 0x1F;
+    pipeline->RFEX_WRITE.rt = (inst >> 16) & 0x1F;
+    pipeline->RFEX_WRITE.rd = (inst >> 11) & 0x1F;
+    pipeline->RFEX_WRITE.shamt = (inst >> 6) & 0x1F;
+    pipeline->RFEX_WRITE.function = inst & 0x3F;
+    pipeline->RFEX_WRITE.immediate = inst & 0xFFFF;
+    pipeline->RFEX_WRITE.SEOffset = (int32_t)pipeline->RFEX_WRITE.immediate;
+
+    set_flags(pipeline);
+    
+    if(pipeline->RFEX_WRITE.control.f_type == R_TYPE) {
+        
+        pipeline->RFEX_WRITE.RegDst = 1;
+        pipeline->RFEX_WRITE.MemRead = 0;
+        pipeline->RFEX_WRITE.MemToReg = 0;
+        pipeline->RFEX_WRITE.MemWrite = 0;
+        pipeline->RFEX_WRITE.ALUSrc = 0;
+        pipeline->RFEX_WRITE.RegWrite = 1;
+
+        pipeline->RFEX_WRITE.Read_Reg_Num = pipeline->RFEX_WRITE.rs;
+        pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rd;
+
+    } else if(pipeline->RFEX_WRITE.control.f_type == I_TYPE) {
+
+        if(pipeline->RFEX_WRITE.control.memAccess == COPROC) {
+                pipeline->RFEX_WRITE.Read_Reg_Num = pipeline->RFEX_WRITE.rt;
+                pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rd;
+                pipeline->RFEX_WRITE.RegDst = 1;
+                pipeline->RFEX_WRITE.MemRead = 0;
+                pipeline->RFEX_WRITE.MemToReg = 0;
+                pipeline->RFEX_WRITE.MemWrite = 0;
+                pipeline->RFEX_WRITE.ALUSrc = 1;
+                pipeline->RFEX_WRITE.RegWrite = 1;
+                return;
+        } else if(pipeline->RFEX_WRITE.control.type == LOAD) {
+            pipeline->RFEX_WRITE.RegDst = 0;
+            pipeline->RFEX_WRITE.MemRead = 1;
+            pipeline->RFEX_WRITE.MemToReg = 1;
+            pipeline->RFEX_WRITE.MemWrite = 0;
+            pipeline->RFEX_WRITE.ALUSrc = 1;
+            pipeline->RFEX_WRITE.RegWrite = 1;
+            pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rt;
+        } else if(pipeline->RFEX_WRITE.control.type == STORE) {
+            pipeline->RFEX_WRITE.RegDst = 0;
+            pipeline->RFEX_WRITE.MemRead = 0;
+            pipeline->RFEX_WRITE.MemToReg = 0;
+            pipeline->RFEX_WRITE.MemWrite = 1;
+            pipeline->RFEX_WRITE.ALUSrc = 1;
+            pipeline->RFEX_WRITE.RegWrite = 0;
+        } else if(pipeline->RFEX_WRITE.control.type == ALU) {
+            pipeline->RFEX_WRITE.RegDst = 0;
+            pipeline->RFEX_WRITE.MemRead = 0;
+            pipeline->RFEX_WRITE.MemToReg = 0;
+            pipeline->RFEX_WRITE.MemWrite = 0;
+            pipeline->RFEX_WRITE.ALUSrc = 1;
+            pipeline->RFEX_WRITE.RegWrite = 1;
+            pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rt;
+            pipeline->RFEX_WRITE.Read_Reg_Num = 0;
+            
+        } else {
+            printf("NOT CP0 RTYPE, ITYPE OR ALU\n");
+            exit(EXIT_FAILURE);
+        }
+        
+    }
+}
+
+void set_flags(Pipeline *pipeline) {
+    pipeline->RFEX_WRITE.control = flags[pipeline->RFEX_WRITE.opcode];
+}
+
 void IC_stage(CPU *cpu) {
 
     //HAZARD FOR BRANCH CHECK BEFORE ANYTHING
-
 
     cpu->pipeline.ICRF_WRITE.instruction = fetch_instruction(cpu);
     cpu->delay_slot = cpu->PC + 4;
@@ -22,59 +110,46 @@ void IC_stage(CPU *cpu) {
 
 void RF_stage(CPU *cpu) {
 
-    Instruction decoded_inst = decode(cpu->pipeline.ICRF_READ.instruction);
-    cpu->pipeline.RFEX_WRITE.control = set_flags(decoded_inst.opcode);
-    
-    if(cpu->pipeline.RFEX_WRITE.control.f_type == R_TYPE) {
-        cpu->pipeline.RFEX_WRITE.RegDst = 1;
+    if(cpu->pipeline.ICRF_READ.instruction == 0) {
+        Control nop_con;
+        nop_con.f_type = NOP;
+        nop_con.memAccess = NO_ACCESS;
+        nop_con.type = INVALID;
+
+        cpu->pipeline.RFEX_WRITE.control = nop_con;
+        cpu->pipeline.RFEX_WRITE.opcode = 0;
+        cpu->pipeline.RFEX_WRITE.rs = 0; 
+        cpu->pipeline.RFEX_WRITE.rt = 0;
+        cpu->pipeline.RFEX_WRITE.rd = 0;
+        cpu->pipeline.RFEX_WRITE.shamt = 0;
+        cpu->pipeline.RFEX_WRITE.function = 0;
+        cpu->pipeline.RFEX_WRITE.immediate = 0;
+        cpu->pipeline.RFEX_WRITE.rs_val = 0;
+        cpu->pipeline.RFEX_WRITE.rt_val = 0;
+        cpu->pipeline.RFEX_WRITE.SEOffset = 0;
+        cpu->pipeline.RFEX_WRITE.branch_addr = 0;
+        cpu->pipeline.RFEX_WRITE.jump_addr = 0;
+        
+        cpu->pipeline.RFEX_WRITE.RegDst = 0;
         cpu->pipeline.RFEX_WRITE.MemRead = 0;
         cpu->pipeline.RFEX_WRITE.MemToReg = 0;
         cpu->pipeline.RFEX_WRITE.MemWrite = 0;
+        cpu->pipeline.RFEX_WRITE.RegWrite = 0;
         cpu->pipeline.RFEX_WRITE.ALUSrc = 0;
-        cpu->pipeline.RFEX_WRITE.RegWrite = 1;
-        cpu->pipeline.RFEX_WRITE.Source_Reg_Num = decoded_inst.rs;
-        cpu->pipeline.RFEX_WRITE.Write_Reg_Num = decoded_inst.rd;
-
-    } else if(cpu->pipeline.RFEX_WRITE.control.f_type == I_TYPE) {
-
-        if(cpu->pipeline.RFEX_WRITE.control.type == LOAD) {
-            cpu->pipeline.RFEX_WRITE.RegDst = 0;
-            cpu->pipeline.RFEX_WRITE.MemRead = 1;
-            cpu->pipeline.RFEX_WRITE.MemToReg = 1;
-            cpu->pipeline.RFEX_WRITE.MemWrite = 0;
-            cpu->pipeline.RFEX_WRITE.ALUSrc = 1;
-            cpu->pipeline.RFEX_WRITE.RegWrite = 1;
-        } else if(cpu->pipeline.RFEX_WRITE.control.type == STORE) {
-            cpu->pipeline.RFEX_WRITE.RegDst = 0;
-            cpu->pipeline.RFEX_WRITE.MemRead = 0;
-            cpu->pipeline.RFEX_WRITE.MemToReg = 0;
-            cpu->pipeline.RFEX_WRITE.MemWrite = 1;
-            cpu->pipeline.RFEX_WRITE.ALUSrc = 1;
-            cpu->pipeline.RFEX_WRITE.RegWrite = 0;
-        } else if(cpu->pipeline.RFEX_WRITE.control.type == ALU) {
-            cpu->pipeline.RFEX_WRITE.RegDst = 1;
-            cpu->pipeline.RFEX_WRITE.MemRead = 0;
-            cpu->pipeline.RFEX_WRITE.MemToReg = 0;
-            cpu->pipeline.RFEX_WRITE.MemWrite = 0;
-            cpu->pipeline.RFEX_WRITE.ALUSrc = 1;
-            cpu->pipeline.RFEX_WRITE.RegWrite = 1;
-            cpu->pipeline.RFEX_WRITE.Source_Reg_Num = decoded_inst.rt;
-            cpu->pipeline.RFEX_WRITE.Write_Reg_Num = decoded_inst.rd;
-        } else {
-            cpu->pipeline.RFEX_WRITE.Source_Reg_Num = decoded_inst.rs;
-            cpu->pipeline.RFEX_WRITE.Write_Reg_Num = decoded_inst.rt;
-        }
-        
+        cpu->pipeline.RFEX_WRITE.Read_Reg_Num = 0;
+        cpu->pipeline.RFEX_WRITE.Write_Reg_Num = 0;
+        return;
     }
-
-    decoded_inst.rs_val = cpu->gpr[decoded_inst.rs];
-    decoded_inst.rt_val = cpu->gpr[decoded_inst.rt];
+    
+    decode(&cpu->pipeline);
+    
+    cpu->pipeline.RFEX_WRITE.rs_val = cpu->gpr[cpu->pipeline.RFEX_WRITE.rs];
+    cpu->pipeline.RFEX_WRITE.rt_val = cpu->gpr[cpu->pipeline.RFEX_WRITE.rt];
     
     if(cpu->pipeline.RFEX_WRITE.control.f_type == J_TYPE) {
-        decoded_inst.branch_addr = cpu->PC + 4 + (decoded_inst.SEOffset << 2);
-        decoded_inst.jump_addr = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF; //fix this
+        cpu->pipeline.RFEX_WRITE.branch_addr = cpu->PC + 4 + (((int64_t) cpu->pipeline.RFEX_WRITE.immediate) << 2);
+        //cpu->pipeline.RFEX_WRITE.jump_addr = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF; //fix this
     }
-    cpu->pipeline.RFEX_WRITE.instruction = decoded_inst;
 }
 
 void EX_stage(CPU *cpu) {
@@ -86,7 +161,8 @@ void EX_stage(CPU *cpu) {
         cpu->pipeline.EXDC_WRITE.RegWrite = 0;
         cpu->pipeline.EXDC_WRITE.ALU_Result = 0;
         cpu->pipeline.EXDC_WRITE.Write_Reg_Num = 0;
-        cpu->pipeline.EXDC_WRITE.control = cpu->pipeline.RFEX_READ.control;
+        cpu->pipeline.EXDC_WRITE.Read_Reg_Num = 0;
+        cpu->pipeline.EXDC_WRITE.control.f_type = NOP;
         return;
     }
 
@@ -95,24 +171,15 @@ void EX_stage(CPU *cpu) {
     cpu->pipeline.EXDC_WRITE.MemRead = cpu->pipeline.RFEX_READ.MemRead;
     cpu->pipeline.EXDC_WRITE.MemWrite = cpu->pipeline.RFEX_READ.MemWrite;
     cpu->pipeline.EXDC_WRITE.RegWrite = cpu->pipeline.RFEX_READ.RegWrite;
+    cpu->pipeline.EXDC_WRITE.Read_Reg_Num = cpu->pipeline.RFEX_READ.Read_Reg_Num;
     cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.Write_Reg_Num;
 
     //need to check for jumps or branches before executing
     execute_instruction(cpu);
 
-    if(cpu->pipeline.HAZARD.forward_ALU_result) {
+    if((cpu->pipeline.EXDC_WRITE.Read_Reg_Num == cpu->pipeline.EXDC_READ.Write_Reg_Num) && cpu->pipeline.EXDC_WRITE.Read_Reg_Num != 0) {
 
-        if(cpu->pipeline.RFEX_READ.RegDst == 1) {
-            cpu->pipeline.EXDC_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
-            cpu->pipeline.HAZARD.forward_ALU_result = 0;
-            printf("HAZARD RELEASED\n");
-            return;
-        }
-    }
-
-    if(cpu->pipeline.EXDC_WRITE.Write_Reg_Num == cpu->pipeline.RFEX_WRITE.Source_Reg_Num) {
-        cpu->pipeline.HAZARD.forward_ALU_result = 1;
-        printf("HAZARD ENCOUNTERED\n");
+        cpu->pipeline.EXDC_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
     }
 
 }
@@ -139,6 +206,9 @@ void DC_stage(CPU *cpu) {
             return;
         }
     }
+    cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
+    cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
+
     //TODO: HANDLE MEM AND TLB :(
 }
 
@@ -181,21 +251,37 @@ void ReadToWrite(CPU *cpu) {
 
     cpu->pipeline.RFEX_READ.instruction = cpu->pipeline.RFEX_WRITE.instruction;
     cpu->pipeline.RFEX_READ.control = cpu->pipeline.RFEX_WRITE.control;
+    cpu->pipeline.RFEX_READ.opcode = cpu->pipeline.RFEX_WRITE.opcode; 
+    cpu->pipeline.RFEX_READ.rs = cpu->pipeline.RFEX_WRITE.rs;
+    cpu->pipeline.RFEX_READ.rt = cpu->pipeline.RFEX_WRITE.rt;
+    cpu->pipeline.RFEX_READ.rd = cpu->pipeline.RFEX_WRITE.rd;
+    cpu->pipeline.RFEX_READ.shamt = cpu->pipeline.RFEX_WRITE.shamt;
+    cpu->pipeline.RFEX_READ.function = cpu->pipeline.RFEX_WRITE.function;
+    cpu->pipeline.RFEX_READ.immediate = cpu->pipeline.RFEX_WRITE.immediate;
+    cpu->pipeline.RFEX_READ.SEOffset = cpu->pipeline.RFEX_WRITE.SEOffset;
+    cpu->pipeline.RFEX_READ.rs_val = cpu->pipeline.RFEX_WRITE.rs_val;
+    cpu->pipeline.RFEX_READ.rt_val = cpu->pipeline.RFEX_WRITE.rt_val;
+    cpu->pipeline.RFEX_READ.branch_addr = cpu->pipeline.RFEX_WRITE.branch_addr;
+    cpu->pipeline.RFEX_READ.jump_addr = cpu->pipeline.RFEX_WRITE.jump_addr;
+    cpu->pipeline.RFEX_READ.MemRead = cpu->pipeline.RFEX_WRITE.MemRead;
+    cpu->pipeline.RFEX_READ.MemToReg = cpu->pipeline.RFEX_WRITE.MemToReg;
+    cpu->pipeline.RFEX_READ.MemWrite = cpu->pipeline.RFEX_WRITE.MemWrite;
+    cpu->pipeline.RFEX_READ.RegWrite = cpu->pipeline.RFEX_WRITE.RegWrite;
     cpu->pipeline.RFEX_READ.RegDst = cpu->pipeline.RFEX_WRITE.RegDst;
-    cpu->pipeline.RFEX_READ.Source_Reg_Num = cpu->pipeline.RFEX_WRITE.Source_Reg_Num;
-    
-    cpu->pipeline.EXDC_READ.instruction = cpu->pipeline.EXDC_WRITE.instruction;
+    cpu->pipeline.RFEX_READ.Read_Reg_Num = cpu->pipeline.RFEX_WRITE.Read_Reg_Num;
+    cpu->pipeline.RFEX_READ.Write_Reg_Num = cpu->pipeline.RFEX_WRITE.Write_Reg_Num;
+
     cpu->pipeline.EXDC_READ.control = cpu->pipeline.EXDC_WRITE.control;
     cpu->pipeline.EXDC_READ.ALU_Result = cpu->pipeline.EXDC_WRITE.ALU_Result;
     cpu->pipeline.EXDC_READ.SW_Value = cpu->pipeline.EXDC_WRITE.SW_Value;
-    cpu->pipeline.EXDC_READ.Write_Reg_Num = cpu->pipeline.EXDC_WRITE.Write_Reg_Num;
     cpu->pipeline.EXDC_READ.MemRead = cpu->pipeline.EXDC_WRITE.MemRead;
-    cpu->pipeline.EXDC_READ.RegWrite = cpu->pipeline.EXDC_WRITE.RegWrite;
+    cpu->pipeline.EXDC_READ.MemToReg = cpu->pipeline.EXDC_WRITE.MemToReg;
     cpu->pipeline.EXDC_READ.MemWrite = cpu->pipeline.EXDC_WRITE.MemWrite;
-    cpu->pipeline.EXDC_READ.Source_Reg_Num = cpu->pipeline.EXDC_WRITE.Source_Reg_Num;
+    cpu->pipeline.EXDC_READ.RegWrite = cpu->pipeline.EXDC_WRITE.RegWrite;
+    cpu->pipeline.EXDC_READ.Read_Reg_Num = cpu->pipeline.EXDC_WRITE.Read_Reg_Num;
+    cpu->pipeline.EXDC_READ.Write_Reg_Num = cpu->pipeline.EXDC_WRITE.Write_Reg_Num;
 
 
-    cpu->pipeline.DCWB_READ.instruction = cpu->pipeline.DCWB_WRITE.instruction;
     cpu->pipeline.DCWB_READ.control = cpu->pipeline.DCWB_WRITE.control;
     cpu->pipeline.DCWB_READ.ALU_Result = cpu->pipeline.DCWB_WRITE.ALU_Result;
     cpu->pipeline.DCWB_READ.LW_Data_Value = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
@@ -212,11 +298,11 @@ void instruction_exception(CPU *cpu) {
 
 void execute_instruction(CPU *cpu) {
 
-    instruction_table[cpu->pipeline.RFEX_READ.instruction.opcode](cpu);
+    instruction_table[cpu->pipeline.RFEX_READ.opcode](cpu);
 }
 
 void R_FORMAT(CPU *cpu) { 
-    uint8_t function = cpu->pipeline.RFEX_READ.instruction.function;
+    uint8_t function = cpu->pipeline.RFEX_READ.function;
 
     switch(function) {
         case 0x08:
@@ -227,7 +313,7 @@ void J(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
 
-    uint32_t j_target = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF; //make this a separate field that gets masked if its a jump instruction
+    uint32_t j_target = cpu->pipeline.RFEX_READ.instruction & 0x03FFFFFF; //make this a separate field that gets masked if its a jump instruction
     j_target = j_target << 2;
     cpu->PC = (cpu->delay_slot & 0xF0000000) | j_target;
 }
@@ -237,7 +323,7 @@ void JAL(CPU* cpu) {
     cpu->delay_slot = cpu->PC + 4;
     cpu->gpr[31] = cpu->delay_slot + 4;
     
-    uint32_t j_target = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF;
+    uint32_t j_target = cpu->pipeline.RFEX_READ.instruction & 0x03FFFFFF;
     j_target = j_target << 2;
     cpu->PC = (cpu->delay_slot & 0xF0000000) | j_target;
 }
@@ -245,10 +331,10 @@ void JAL(CPU* cpu) {
 void BEQ(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] == cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] == cpu->gpr[cpu->pipeline.RFEX_READ.rt]) {
         cpu->PC = cpu->PC + b_target;
     }
 }
@@ -256,38 +342,38 @@ void BEQ(CPU *cpu) {
 void BNEQ(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] != cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] != cpu->gpr[cpu->pipeline.RFEX_READ.rt]) {
         cpu->PC = cpu->PC + b_target;
     }
 }
 
 void BLEZ(CPU *cpu) {
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] <= 0) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] <= 0) {
         cpu->PC = cpu->PC + b_target;
     }
 }
 
 void BGTZ(CPU *cpu) {
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] > 0) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] > 0) {
         cpu->PC = cpu->PC + b_target;
     }
 }
 
 void ADDI(CPU *cpu) {
     
-    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.rs_val;
     int64_t result = rs_val + SE_Immediate;
 
     //TODO: handle int overflow...
@@ -302,9 +388,9 @@ void ADDI(CPU *cpu) {
 
 void ADDIU(CPU *cpu) {
 
-    int16_t immediate = cpu->pipeline.RFEX_READ.instruction.immediate;
+    int16_t immediate = cpu->pipeline.RFEX_READ.immediate;
     int64_t SE_Immediate = (int64_t)immediate;
-    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
+    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.rs_val;
     int64_t result = rs_val + SE_Immediate;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = (uint64_t)result; 
@@ -312,8 +398,8 @@ void ADDIU(CPU *cpu) {
 
 void SLTI(CPU *cpu) {
 
-    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.instruction.rs_val;
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    int64_t rs_val = (int64_t)cpu->pipeline.RFEX_READ.rs_val;
     if(rs_val < SE_Immediate) {
         cpu->pipeline.EXDC_WRITE.ALU_Result = 1;
     } else {
@@ -323,8 +409,8 @@ void SLTI(CPU *cpu) {
 
 void SLTIU(CPU *cpu) {
 
-    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
 
     if(rs_val < (uint64_t)SE_Immediate) {
         cpu->pipeline.EXDC_WRITE.ALU_Result = 1;
@@ -335,50 +421,50 @@ void SLTIU(CPU *cpu) {
 
 void ANDI(CPU *cpu) {
 
-    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
     uint64_t result = rs_val & ZE_Immediate;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;   
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rt;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rt;
     cpu->pipeline.EXDC_WRITE.RegWrite = 1;
 }
 
 void ORI(CPU *cpu) {
 
-    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
     uint64_t result = rs_val | ZE_Immediate;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result; 
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rt;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rt;
     cpu->pipeline.EXDC_WRITE.RegWrite = 1;
 }
 
 void XORI(CPU *cpu) {
 
-    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t ZE_Immediate = (uint64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
     uint64_t result = rs_val ^ ZE_Immediate;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result; 
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rt;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rt;
     cpu->pipeline.EXDC_WRITE.RegWrite = 1;
 }
 
 void LUI(CPU *cpu) {
 
-    int16_t immediate = cpu->pipeline.RFEX_READ.instruction.immediate;
+    int32_t immediate = cpu->pipeline.RFEX_READ.immediate;
     int64_t SE_immediate = (int64_t)immediate << 16;
     cpu->pipeline.EXDC_WRITE.ALU_Result = (uint64_t)SE_immediate;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rt;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rt;
     cpu->pipeline.EXDC_WRITE.RegWrite = 1;
 }
 
 void MTC0(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.ALU_Result = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.ALU_Result = cpu->pipeline.RFEX_READ.rt_val;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     cpu->pipeline.EXDC_WRITE.RegWrite = 1;
 }
 
@@ -389,10 +475,10 @@ void MTC1(CPU *cpu) {
 void BEQL(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] == cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] == cpu->gpr[cpu->pipeline.RFEX_READ.rt]) {
         cpu->PC = cpu->PC + b_target;
     }
 }
@@ -400,10 +486,10 @@ void BEQL(CPU *cpu) {
 void BNEQL(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] != cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rt]) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] != cpu->gpr[cpu->pipeline.RFEX_READ.rt]) {
         cpu->PC = cpu->PC + b_target;
     }
 }
@@ -411,10 +497,10 @@ void BNEQL(CPU *cpu) {
 void BLEZL(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.SEOffset;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] <= 0) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] <= 0) {
         cpu->PC = cpu->PC + b_target;
     }
 }
@@ -422,18 +508,18 @@ void BLEZL(CPU *cpu) {
 void BGTZL(CPU *cpu) {
 
     cpu->delay_slot = cpu->PC + 4;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.instruction.SEOffset;
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
     uint32_t b_target = ((extended_offset << 2) + cpu->delay_slot);
 
-    if(cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs] > 0) {
+    if(cpu->gpr[cpu->pipeline.RFEX_READ.rs] > 0) {
         cpu->PC = cpu->PC + b_target;
     }
 }
 
 void DADDI(CPU *cpu) {
 
-    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    int64_t result = SE_Immediate + cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs];
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    int64_t result = SE_Immediate + cpu->gpr[cpu->pipeline.RFEX_READ.rs];
     if((result > INT64_MAX) || (result < INT64_MIN)) {
     /*handle errors and exceptions*/
     } else {
@@ -443,8 +529,8 @@ void DADDI(CPU *cpu) {
 
 void DADDIU(CPU *cpu) {
 
-    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.instruction.immediate;
-    int64_t result = SE_Immediate + cpu->gpr[cpu->pipeline.RFEX_READ.instruction.rs];
+    int64_t SE_Immediate = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    int64_t result = SE_Immediate + cpu->gpr[cpu->pipeline.RFEX_READ.rs];
     
     cpu->pipeline.EXDC_WRITE.ALU_Result = (uint64_t)result;
 }
@@ -471,18 +557,18 @@ void LDR(CPU *cpu) {
 }
 
 void LB(CPU *cpu) {
-    int64_t SEOffset = (int64_t)cpu->pipeline.RFEX_READ.instruction.SEOffset;
-    uint64_t rs_data = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    int64_t SEOffset = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_data = cpu->pipeline.RFEX_READ.rs_val;
     cpu->pipeline.EXDC_WRITE.ALU_Result = rs_data + SEOffset;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rt;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rt;
 }
 
 void LH(CPU *cpu) {
 
-    int64_t SEOffset = (int64_t)cpu->pipeline.RFEX_READ.instruction.SEOffset;
-    uint64_t rs_data = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    int64_t SEOffset = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_data = cpu->pipeline.RFEX_READ.rs_val;
     cpu->pipeline.EXDC_WRITE.ALU_Result = rs_data + SEOffset;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rt;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rt;
 
     //if least significant bit of alu_result is not zero, address error exception occurs
 }
@@ -524,43 +610,43 @@ void LWU(CPU *cpu) {
 
 void SB(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SH(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SWL(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SW(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SDL(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SDR(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SWR(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
@@ -584,19 +670,19 @@ void LD(CPU *cpu) {
 
 void SC(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SCD(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
 void SD(CPU *cpu) {
 
-    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
     printf("you havent done this instruction yet!\n");
 }
 
@@ -672,25 +758,25 @@ void (*instruction_table[64])(CPU *) = {
 
 //R format functions
 void SLL(CPU *cpu) {
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
-    uint64_t rt_data = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
+    uint64_t rt_data = cpu->pipeline.RFEX_READ.rt_val;
 
     if(shamt == 0) {
         uint32_t data = (uint32_t) rt_data;
         cpu->pipeline.EXDC_WRITE.ALU_Result = data;
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     } else {
         cpu->pipeline.EXDC_WRITE.ALU_Result = (rt_data << shamt);
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     }
 }
 
 void SRL(CPU *cpu) {
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
-    uint64_t rt_data = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
+    uint64_t rt_data = cpu->pipeline.RFEX_READ.rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = (rt_data >> shamt);
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 
     //if shift amt is zero, it can be seen as a no op so make sure to check this !!
 }
@@ -698,46 +784,46 @@ void SRL(CPU *cpu) {
 
 
 void SRA(CPU *cpu) {
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
-    int64_t rt_data = (int64_t)cpu->pipeline.RFEX_READ.instruction.rt_val; // Cast to signed type
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
+    int64_t rt_data = (int64_t)cpu->pipeline.RFEX_READ.rt_val; // Cast to signed type
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_data >> shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void SLLV(CPU *cpu) {
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.rs_val & 0x1F;
-    uint64_t rt_data = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.rs_val & 0x1F;
+    uint64_t rt_data = cpu->pipeline.RFEX_READ.rt_val;
 
     if(shamt == 0) {
         uint32_t data = (uint32_t) rt_data;
         cpu->pipeline.EXDC_WRITE.ALU_Result = data;
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     } else {
         cpu->pipeline.EXDC_WRITE.ALU_Result = (rt_data << shamt);
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     }
 }
 
 void SRLV(CPU *cpu) {
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.rs_val & 0x1F;
-    uint64_t rt_data = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.rs_val & 0x1F;
+    uint64_t rt_data = cpu->pipeline.RFEX_READ.rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = (rt_data >> shamt);
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     
 }
 
 void SRAV(CPU *cpu) {
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.rs_val & 0x1F;
-    int64_t rt_data = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.rs_val & 0x1F;
+    int64_t rt_data = cpu->pipeline.RFEX_READ.rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_data >> shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void JR(CPU *cpu) {
-    uint32_t target = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint32_t target = cpu->pipeline.RFEX_READ.rs_val;
     if((target & 0x02) != 0) {
         //address exception;
     }
@@ -748,7 +834,7 @@ void JR(CPU *cpu) {
 }
 
 void JALR(CPU *cpu) {
-    uint32_t target = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint32_t target = cpu->pipeline.RFEX_READ.rs_val;
     if((target & 0x02) != 0) {
         //address exception;
     }
@@ -757,7 +843,7 @@ void JALR(CPU *cpu) {
 
     uint32_t return_addr = cpu->PC + 8;
     cpu->pipeline.EXDC_WRITE.ALU_Result = return_addr;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     //need to handle this in WB stage, writing return addr to rd or r31
     printf("tried to execute JR\n");
     exit(EXIT_FAILURE);
@@ -778,13 +864,13 @@ void MFHI(CPU *cpu) {
 
     uint64_t data = cpu->HI;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void MTHI(CPU *cpu) {
     //maybe issue if following instruction is mflo, mfhi, mtlo, or mthi, register lo is undefined?
 
-    uint64_t data = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t data = cpu->pipeline.RFEX_READ.rs_val;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data;
     cpu->pipeline.EXDC_WRITE.Write_Reg_Num = REG_HI; 
 }
@@ -792,34 +878,34 @@ void MTHI(CPU *cpu) {
 void MFLO(CPU *cpu) {
     uint64_t data = cpu->LO;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void MTLO(CPU *cpu) {
-    uint64_t data = cpu->pipeline.RFEX_READ.instruction.rs_val;
+    uint64_t data = cpu->pipeline.RFEX_READ.rs_val;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data;
     cpu->pipeline.EXDC_WRITE.Write_Reg_Num = REG_LO; 
 }
 
 void DSLLV(CPU* cpu) {
-    uint64_t data = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.rs_val & 0x3F;
+    uint64_t data = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.rs_val & 0x3F;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data << shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSRLV(CPU *cpu) {
-    uint64_t data = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.rs_val & 0x3F;
+    uint64_t data = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.rs_val & 0x3F;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data >> shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSRAV(CPU *cpu) {
-    int64_t data = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.rs_val & 0x3F;
+    int64_t data = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.rs_val & 0x3F;
     cpu->pipeline.EXDC_WRITE.ALU_Result = data >> shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void MULT(CPU *cpu) {
@@ -855,8 +941,8 @@ void DDIVU(CPU *cpu) {
 }
 
 void ADD(CPU *cpu) {
-    int64_t rs_val = (int32_t) cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = (int32_t) cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = (int32_t) cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = (int32_t) cpu->pipeline.RFEX_READ.rt_val;
     int64_t result = rs_val + rt_val;
     if (((rs_val > 0) && (rt_val > 0) && (result < 0)) || 
         ((rs_val < 0) && (rt_val < 0) && (result > 0))) {
@@ -868,23 +954,23 @@ void ADD(CPU *cpu) {
     } else {
         // No overflow: Write result to destination register
         cpu->pipeline.EXDC_WRITE.ALU_Result = (uint32_t)result;
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     }
 
 }
 
 void ADDU(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val + rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void SUB(CPU *cpu) {
-    int64_t rs_val = (int32_t) cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = (int32_t) cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = (int32_t) cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = (int32_t) cpu->pipeline.RFEX_READ.rt_val;
     int64_t result = rs_val - rt_val;
     if (((rs_val > 0) && (rt_val < 0) && (result < 0)) || 
         ((rs_val < 0) && (rt_val > 0) && (result > 0))) {
@@ -896,75 +982,75 @@ void SUB(CPU *cpu) {
     } else {
         // No overflow: Write result to destination register
         cpu->pipeline.EXDC_WRITE.ALU_Result = (uint32_t)result;
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     }
 }
 
 void SUBU(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val - rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void AND(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val & rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void OR(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val | rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void XOR(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val ^ rt_val;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void NOR(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = ~(rs_val | rt_val);
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void SLT(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     
     cpu->pipeline.EXDC_WRITE.ALU_Result = (rs_val < rt_val) ? 1 : 0;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;    
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;    
 }
 
 
 void SLTU(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     
     cpu->pipeline.EXDC_WRITE.ALU_Result = (rs_val < rt_val) ? 1 : 0;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd; 
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd; 
 }
 
 void DADD(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     int64_t result = rs_val + rt_val;
     if (((rs_val > 0) && (rt_val > 0) && (result < 0)) || 
         ((rs_val < 0) && (rt_val < 0) && (result > 0))) {
@@ -976,23 +1062,23 @@ void DADD(CPU *cpu) {
     } else {
         // No overflow: Write result to destination register
         cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     }
 }
 
 void DADDU(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val + rt_val;
     
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 
 }
 
 void DSUB(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     int64_t result = rs_val - rt_val;
     if (((rs_val > 0) && (rt_val < 0) && (result < 0)) || 
         ((rs_val < 0) && (rt_val > 0) && (result > 0))) {
@@ -1004,114 +1090,114 @@ void DSUB(CPU *cpu) {
     } else {
         // No overflow: Write result to destination register
         cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+        cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
     }
 }
 
 void DSUBU(CPU *cpu) {
     
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     uint64_t result = rs_val - rt_val;
     
     cpu->pipeline.EXDC_WRITE.ALU_Result = result;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void TGE(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     printf("trap ge\n");
     exit(EXIT_FAILURE);
     //TODO: HANDLE TRAP
 }
 
 void TGEU(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     printf("trap geu\n");
     exit(EXIT_FAILURE);
     //TODO: HANDLE TRAP
 }
 
 void TLT(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     printf("trap tlt\n");
     exit(EXIT_FAILURE);
     //TODO: HANDLE TRAP
 }
 
 void TLTU(CPU *cpu) {
-    uint64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    uint64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     printf("trap tltu\n");
     exit(EXIT_FAILURE);
     //TODO: HANDLE TRAP
 }
 
 void TE(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     printf("trap te\n");
     exit(EXIT_FAILURE);
     //TODO: HANDLE TRAP
 }
 
 void TNE(CPU *cpu) {
-    int64_t rs_val = cpu->pipeline.RFEX_READ.instruction.rs_val;
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
+    int64_t rs_val = cpu->pipeline.RFEX_READ.rs_val;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
     printf("trap tne\n");
     exit(EXIT_FAILURE);
     //TODO: HANDLE TRAP
 }
 
 void DSLL(CPU *cpu) {
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_val << shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSRL(CPU *cpu) {
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_val >> shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSRA(CPU *cpu) {
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_val >> shamt;
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSLL32(CPU *cpu) {
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_val << (32 + shamt);
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSRL32(CPU *cpu) {
-    uint64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
+    uint64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_val >> (32 + shamt);
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;
 }
 
 void DSRA32(CPU *cpu) {
-    int64_t rt_val = cpu->pipeline.RFEX_READ.instruction.rt_val;
-    uint8_t shamt = cpu->pipeline.RFEX_READ.instruction.shamt;
+    int64_t rt_val = cpu->pipeline.RFEX_READ.rt_val;
+    uint8_t shamt = cpu->pipeline.RFEX_READ.shamt;
 
     cpu->pipeline.EXDC_WRITE.ALU_Result = rt_val >> (32 + shamt);
-    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.instruction.rd;    
+    cpu->pipeline.EXDC_WRITE.Write_Reg_Num = cpu->pipeline.RFEX_READ.rd;    
 }
 
 
