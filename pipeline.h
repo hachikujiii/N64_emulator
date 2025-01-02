@@ -4,16 +4,28 @@
 #include "control.h"
 #include <stdbool.h>
 
+typedef enum {
+    IC = 0,
+    RF,
+    EX,
+    DC,
+    WB
+} Stage;
+
 typedef struct {
     bool PCSrc;
     bool PCWrite;
     bool IDwrite;
-    bool flush;
+    bool stall;
+
     uint32_t instruction;
+    uint32_t delay_slot;
 } ICRF_Pipeline;
 
 typedef struct {
     uint32_t instruction;
+    uint32_t delay_slot;
+
     Control control;
     uint8_t opcode;
     uint8_t rs; 
@@ -28,6 +40,7 @@ typedef struct {
     uint32_t branch_addr;
     uint32_t jump_addr;
 
+    bool stall;
     bool MemRead;
     bool MemToReg;
     bool MemWrite;
@@ -35,17 +48,18 @@ typedef struct {
     bool RegDst;
     bool ALUSrc;
 
-    uint8_t Read_Reg_Num;
     uint8_t Write_Reg_Num;
 
 } RFEX_Pipeline;
 
 typedef struct {
     Control control;
+    bool stall; 
     bool MemRead;
     bool MemToReg;
     bool MemWrite;
     bool RegWrite;
+    Num_Bytes num_bytes; 
 
     uint64_t ALU_Result;
     uint64_t SW_Value;
@@ -69,13 +83,13 @@ typedef struct {
 
 typedef struct {
     bool stall;               // Flag indicating whether the pipeline should stall
-    bool forward_rs;          // Whether to forward the value of rs
-    bool forward_rt;          // Whether to forward the value of rt
+    bool branch;
     bool forward_ALU_result;
-    uint64_t forward_rs_val;  // Forwarded value for rs
-    uint64_t forward_rt_val;  // Forwarded value for rt
-    int forwarding_stage_rs;  // Stage where the forwarded rs value is coming from
-    int forwarding_stage_rt;  // Stage where the forwarded rt value is coming from
+    bool forward_load_result;
+
+    Stage stage;
+    int stall_count;
+
 } HazardControl;
 
 typedef struct {

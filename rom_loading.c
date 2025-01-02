@@ -1,17 +1,17 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "memory.h"
+#include "mmu.h"
 #include "rom_loading.h"
 
-int load_roms(Memory *memory) {
+int load_roms(Memory *mem) {
     // Load ROMs and PIF ROM into the memory object
     FILE *binfile = fopen("OcarinaOfTime.bin", "rb");
     if (!binfile) {
         fprintf(stderr, "Failed to open .bin file\n");
         return -1;
     }
-    size_t bytesRead = fread(memory->cartridge.ROM, sizeof(unsigned char), ROM_SIZE, binfile);
-    if (bytesRead != ROM_SIZE) {
+    size_t bytesRead = fread(mem->cart_rom, sizeof(unsigned char), CART_ROM_SIZE, binfile);
+    if (bytesRead != CART_ROM_SIZE) {
         fprintf(stderr, "Failed to read the entire cartridge file\n");
         fclose(binfile);
         return -1;
@@ -23,7 +23,7 @@ int load_roms(Memory *memory) {
         fprintf(stderr, "Failed to open PIF ROM file\n");
         return -1;
     }
-    size_t pif_bytes_read = fread(memory->pif_rom.data, sizeof(unsigned char), PIF_ROM_SIZE, pif_file);
+    size_t pif_bytes_read = fread(mem->pif_rom, sizeof(unsigned char), PIF_ROM_SIZE, pif_file);
     if (pif_bytes_read != PIF_ROM_SIZE) {
         fprintf(stderr, "Failed to read PIF ROM\n");
         fclose(pif_file);

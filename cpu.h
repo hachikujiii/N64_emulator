@@ -4,23 +4,68 @@
 #include "cp0.h"
 #include "mmu.h"
 #include "pipeline.h"
+#include <stdlib.h>
 
 #define ICACHE_SIZE        0x4000 //16KB Instruction Cache
 #define DCACHE_SIZE        0x2000 //8KB Data Cache
 #define init_address       0xBFC00000 //starting address on boot process
 
+
+typedef enum {
+    GPR_R0, GPR_AT, GPR_V0,
+    GPR_V1, GPR_A0, GPR_A1,
+    GPR_A2, GPR_A3, GPR_T0,
+    GPR_T1, GPR_T2, GPR_T3,
+    GPR_T4, GPR_T5, GPR_T6,
+    GPR_T7, GPR_S0, GPR_S1,
+    GPR_S2, GPR_S3, GPR_S4,
+    GPR_S5, GPR_S6, GPR_S7,
+    GPR_T8, GPR_T9, GPR_K0,
+    GPR_K1, GPR_GP, GPR_SP,
+    GPR_FP, GPR_RA,
+
+    // CP0 registers.
+    CP0_REG_0, CP0_REG_1, CP0_REG_2,
+    CP0_REG_3, CP0_REG_4, CP0_REG_5,
+    CP0_REG_6, CP0_REG_7, CP0_REG_8,
+    CP0_REG_9, CP0_REG_10, CP0_REG_11,
+    CP0_REG_12, CP0_REG_13, CP0_REG_14,
+    CP0_REG_15, CP0_REG_16, CP0_REG_17,
+    CP0_REG_18, CP0_REG_19, CP0_REG_20,
+    CP0_REG_21, CP0_REG_22, CP0_REG_23,
+    CP0_REG_24, CP0_REG_25, CP0_REG_26,
+    CP0_REG_27, CP0_REG_28, CP0_REG_29,
+    CP0_REG_30, CP0_REG_31,
+
+    // CP1 registers.
+    CP1_REG_0, CP1_REG_1, CP1_REG_2,
+    CP1_REG_3, CP1_REG_4, CP1_REG_5,
+    CP1_REG_6, CP1_REG_7, CP1_REG_8,
+    CP1_REG_9, CP1_REG_10, CP1_REG_11,
+    CP1_REG_12, CP1_REG_13, CP1_REG_14,
+    CP1_REG_15, CP1_REG_16, CP1_REG_17,
+    CP1_REG_18, CP1_REG_19, CP1_REG_20,
+    CP1_REG_21, CP1_REG_22, CP1_REG_23,
+    CP1_REG_24, CP1_REG_25, CP1_REG_26,
+    CP1_REG_27, CP1_REG_28, CP1_REG_29,
+    CP1_REG_30, CP1_REG_31,
+
+    // Miscellanious registers.
+    REG_HI, REG_LO,
+    CP1_FCR0, CP1_FCR31,
+
+    NUM_VR4300_REGISTERS
+} Registers;
+
 typedef struct {
+
     MMU *mmu;
     CP0 cp0; /*System Control Processor*/
     //CP1 cp1; /*Floating Point Unit*/
-    uint64_t gpr[32];
+    uint64_t regs[NUM_VR4300_REGISTERS];
     double fpr[32]; 
     uint64_t PC;
-    uint64_t delay_slot;
-    uint64_t HI, LO;
     bool LLbit;
-    float FCR0;
-    float FCR31;
 
     uint64_t instruction_cache[ICACHE_SIZE / 8];
     uint64_t data_cache[DCACHE_SIZE / 8];
@@ -31,19 +76,16 @@ typedef struct {
     //TODO:
 } CPU;
 
-typedef enum {
-    REG_HI = 32,    // Special register HI (index 32 for example)
-    REG_LO = 33     // Special register LO (index 33 for example)
-} SpecialRegisters;
-
 extern void (*instruction_table[64])(CPU *);
 extern void (*function_table[64])(CPU *);
+
 extern Control flags[64];
 // CPU fetch function example
 uint32_t fetch_instruction(CPU *cpu);
 void decode(Pipeline *pipeline);
 void execute_instruction(CPU *cpu);
 void set_flags(Pipeline *pipeline);
+void insert_nop(Pipeline *pipeline, Stage stage);
 void IC_stage(CPU *cpu);
 void RF_stage(CPU *cpu);
 void EX_stage(CPU *cpu);

@@ -1,5 +1,21 @@
 #include "mmu.h"
+#include "rom_loading.h"
 #include "cpu.h"
+#include "serial_interface.h"
+#include "parallel_interface.h"
+#include <stdlib.h>
+
+void init_mmu(MMU *mmu, Memory *mem) {
+
+    init_si(mem, &mmu->si);
+    init_pi(mem, &mmu->pi);
+}
+
+uint32_t cpu_read(MMU *mmu, uint32_t address) {
+
+    uint32_t physical_address = map_virtual(mmu, address);
+    return map_physical(mmu, physical_address);
+}
 
 
 bool inRange (uint64_t address, uint64_t start, uint64_t end) {
@@ -44,60 +60,139 @@ uint32_t direct_map(uint32_t virtual_address, uint32_t segment_start) {
 
 uint32_t map_physical(MMU *mmu, uint32_t physical_address) {
 
-    //if (inRange(physical_address, RDRAM_START, RDRAM_END)) {
+    if (inRange(physical_address, RDRAM_START, RDRAM_END)) {
+
         //RDRAM - built in
-    //} else if (inRange(physical_address, RDRAMX_START, RDRAMX_END)) {
+        printf("In range of RDRAM\n");
+        return 1;
+        
+    } else if (inRange(physical_address, RDRAMX_START, RDRAMX_END)) {
+
         //RDRAM - expansion pack
-    //} else if (inRange(physical_address, RDRAM_REG_START, RDRAM_REG_END)) {
+        printf("In range of RDRAMX\n");
+        return 1;
+
+    } else if (inRange(physical_address, RDRAM_REG_START, RDRAM_REG_END)) {
+
         //rdram mmio - configures timings, maybe irrelevant
-    //} else if (inRange(physical_address, SPDMEM_START, SPDMEM_END)) {
+        printf("In range of RDRAM_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, SPDMEM_START, SPDMEM_END)) {
+
         //RSP data mem
-    //} else if (inRange(physical_address, SPIMEM_START, SPIMEM_END)) {
+        printf("In range of SPDMEM\n");
+        return 1;
+        
+    } else if (inRange(physical_address, SPIMEM_START, SPIMEM_END)) {
+
         //RSP instruction mem
-    //} else if (inRange(physical_address, SP_REG_START, SP_REG_END)) {
+        printf("In range of SPIMEM\n");
+        return 1;
+        
+    } else if (inRange(physical_address, SP_REG_START, SP_REG_END)) {
+
         //control RSP DMA engine, status, program counter
-    //} else if (inRange(physical_address, DPCOM_REG_START, DPCOM_REG_END)) {
+        printf("In range of SP_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, DPCOM_REG_START, DPCOM_REG_END)) {
+
         //send commands to RDP
-    //} else if (inRange(physical_address, DPSPAN_REG_START, DPSPAN_REG_END)) {
+        printf("In range of DPCOM_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, DPSPAN_REG_START, DPSPAN_REG_END)) {
+
         //UNKNOWN
-    //} else if (inRange(physical_address, MI_REG_START, MI_REG_END)) {
+        printf("In range of DPSPAN\n");
+        return 1;
+        
+    } else if (inRange(physical_address, MI_REG_START, MI_REG_END)) {
+
         //MIPS INTERFACE, SYSTEM INFO, INTERRUPTS
-    //} else if (inRange(physical_address, VI_REG_START, VI_REG_END)) {
+        printf("In range of MI_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, VI_REG_START, VI_REG_END)) {
+
         //video interface, screen res, framebuff settings
-    //} else if (inRange(physical_address, AI_REG_START, AI_REG_END)) {
+        printf("In range of VI_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, AI_REG_START, AI_REG_END)) {
+
         //audio subsystem
-    //} else if (inRange(physical_address, PI_REG_START, PI_REG_END)) {
+        printf("In range of AI_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, PI_REG_START, PI_REG_END)) {
+
         //peripheral interface, set up DMAs cart <==> RDRAM
-    //} else if (inRange(physical_address, RI_REG_START, RI_REG_END)) {
+        printf("In range of PI_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, RI_REG_START, RI_REG_END)) {
+
         //rdram settings, irrelevant for emulation?
-    //} else if (inRange(physical_address, SI_REG_START, SI_REG_END)) {
+        printf("In range of RI_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, SI_REG_START, SI_REG_END)) {
+
         //control pif ram <==> rdram dma engine
-    //} else if (inRange(physical_address, CART_D2A1_START, CART_D2A1_END)) {
+        printf("In range of SI_REG\n");
+        return 1;
+        
+    } else if (inRange(physical_address, CART_D2A1_START, CART_D2A1_END)) {
+
         //n64DD control reg, returns open bus or all 0xff when not present
-    //} else if (inRange(physical_address, CART_D1A1_START, CART_D1A1_END)) {
+        printf("In range of CART_D2A1\n");
+        return 1;
+        
+    } else if (inRange(physical_address, CART_D1A1_START, CART_D1A1_END)) {
+
         //n64DD IPL ROM - returns open bus or all 0xff when not present
-    //} else if (inRange(physical_address, CART_D2A2_START, CART_D2A2_END)) {
+        printf("In range of CART_D1A1\n");
+        return 1;
+        
+    } else if (inRange(physical_address, CART_D2A2_START, CART_D2A2_END)) {
+
         //SRAM is mapped here
-    //} else if (inRange(physical_address, CART_D1A2_START, CART_D1A2_END)) {
+        printf("In range of CART_D2A2\n");
+        return 1;
+        
+    } else if (inRange(physical_address, CART_D1A2_START, CART_D1A2_END)) {
+
         //ROM is mapped here
-    if (inRange(physical_address, PIF_BOOT_ROM_START, PIF_BOOT_ROM_END)) {
+        printf("In range of CART_D1A2\n");
+        return 1;
+        
+    } else if (inRange(physical_address, PIF_BOOT_ROM_START, PIF_BOOT_ROM_END)) {
+
         //first code run on boot, baked into hardware
-        uint32_t offset = physical_address - PIF_BOOT_ROM_START;
-        uint32_t *inst_p = (uint32_t *)(mmu->memory->pif_rom.data + offset);
-        uint32_t inst = *inst_p;
-        return inst;
-    }
-    //if (inRange(physical_address, PIF_RAM_START, PIF_RAM_END)) {
+        return read_pif(&mmu->si, physical_address);
+
+    } else if (inRange(physical_address, PIF_RAM_START, PIF_RAM_END)) {
+
         //used to communicate with PIF chip (controller and mem cards)
-    //    
-    //}
-    else {
+        printf("In range of PIF_RAM\n");
+        return 1;
+        
+        
+    } else if (inRange(physical_address, CART_D1A3_START, CART_D1A3_END)) {
+        //
+        printf("In range of CART_D1A3\n");
+        return 1;
+        
+    } else if (inRange(physical_address, EXSYS_DEV_START, EXSYS_DEV_END)) {
+
+        printf("In range of EXSYS_DEV\n");
+        return 1;
+
+    } else {
         printf("unable to get physical");
         return 1;
     }
-    //} else if (inRange(physical_address, CART_D1A3_START, CART_D1A3_END)) {
-        //
-    //} else if (inRange(physical_address, EXSYS_DEV_START, EXSYS_DEV_END)) {
-
-    //}
+   
 }

@@ -6,7 +6,7 @@ CFLAGS = -g -Wall
 TARGET = n64_emulator
 
 # List of source files
-SOURCES = main.c n64.c pipeline.c rom_loading.c debug_sys.c control.c memory.c cp0.c cpu.c mmu.c
+SOURCES = main.c n64.c pipeline.c rom_loading.c debug_sys.c control.c cp0.c cpu.c mmu.c memory.c parallel_interface.c serial_interface.c
 
 # Automatically create object files from source files
 OBJECTS = $(SOURCES:.c=.o)

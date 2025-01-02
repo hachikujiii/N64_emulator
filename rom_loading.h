@@ -2,8 +2,8 @@
 #define ROM_LOADING_H
 
 // Forward declaration of N64 struct
-#include "memory.h"
+#include "mmu.h"
 
-int load_roms(Memory *memory);
+int load_roms(Memory *mem);
 
 #endif

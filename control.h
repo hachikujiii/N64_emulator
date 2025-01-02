@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 typedef enum {
-    R_TYPE, I_TYPE, J_TYPE, REGIMM, TRAP, ERROR, NOP
+    R_TYPE, I_TYPE, J_TYPE, TRAP, ERROR, NOP
 } Format_Type;
 
 typedef enum {
@@ -16,11 +16,14 @@ typedef enum {
     NO_ACCESS, MEM_READ, MEM_WRITE, REG_READ, REG_WRITE, COPROC
 } Access_Type;
 
+typedef enum {
+    ZERO, BYTE, H_WORD, UNUSED, WORD, D_WORD = 8
+} Num_Bytes;
 
 typedef struct {
-    Format_Type f_type;
-    Operation_Type type;
-    Access_Type memAccess;
+    Format_Type format_type;
+    Operation_Type op_type;
+    Access_Type mem_access;
 } Control;
 
 uint32_t byte_swap(uint32_t inst);
