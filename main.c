@@ -16,10 +16,11 @@ int main(int argc, char *argv[]) {
     }
 
     cold_reset(n64);
-    //print_pif_ram(n64->cpu.mmu);
+    print_pif_ram(&n64->memory);
     printf("INITIAL CPU STATE:\n");
-    //print_pipeline(&n64->cpu);
-    //print_cpu(&n64->cpu);
+    print_pipeline(&n64->cpu);
+    print_cpu(&n64->cpu);
+    print_rsp(&n64->rcp.rsp);
     printf("\n\n");
     int i = 18;
     while(i > 0) { 
@@ -36,5 +37,4 @@ int main(int argc, char *argv[]) {
         // ERET  0100 0010 0000 0000 0000 0000 0001 1000
         i--;
     }     
-
 }

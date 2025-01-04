@@ -5,10 +5,11 @@
 #include "parallel_interface.h"
 #include <stdlib.h>
 
-void init_mmu(MMU *mmu, Memory *mem) {
+void init_mmu(MMU *mmu, Memory *mem, RSP *rsp) {
 
     init_si(mem, &mmu->si);
     init_pi(mem, &mmu->pi);
+    mmu->rsp = rsp;
 }
 
 uint32_t cpu_read(MMU *mmu, uint32_t address) {
@@ -92,9 +93,7 @@ uint32_t map_physical(MMU *mmu, uint32_t physical_address) {
         
     } else if (inRange(physical_address, SP_REG_START, SP_REG_END)) {
 
-        //control RSP DMA engine, status, program counter
-        printf("In range of SP_REG\n");
-        return 1;
+        return rsp_read_reg(mmu->rsp, physical_address);
         
     } else if (inRange(physical_address, DPCOM_REG_START, DPCOM_REG_END)) {
 

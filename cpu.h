@@ -85,7 +85,6 @@ uint32_t fetch_instruction(CPU *cpu);
 void decode(Pipeline *pipeline);
 void execute_instruction(CPU *cpu);
 void set_flags(Pipeline *pipeline);
-void insert_nop(Pipeline *pipeline, Stage stage);
 void IC_stage(CPU *cpu);
 void RF_stage(CPU *cpu);
 void EX_stage(CPU *cpu);

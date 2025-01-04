@@ -86,9 +86,12 @@ typedef struct {
     bool branch;
     bool forward_ALU_result;
     bool forward_load_result;
+    bool delay_IC_RF_copy;
 
     Stage stage;
     int stall_count;
+    int delay_copy_count;
+
 
 } HazardControl;
 
@@ -109,5 +112,6 @@ typedef struct {
 } Pipeline;
 
 void init_pipeline(Pipeline *pipeline);
+void insert_nop(Pipeline *pipeline, Stage stage);
 
 #endif

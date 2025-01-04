@@ -66,14 +66,10 @@ void print_cpu(CPU *cpu) {
 void print_instruction(Pipeline *pipeline) {
 
 
-    uint32_t big_endian_instruction = 
-        ((pipeline->RFEX_WRITE.instruction & 0xFF) << 24) |
-        ((pipeline->RFEX_WRITE.instruction & 0xFF00) << 8) |
-        ((pipeline->RFEX_WRITE.instruction & 0xFF0000) >> 8) |
-        ((pipeline->RFEX_WRITE.instruction & 0xFF000000) >> 24);
+    uint32_t instruction = pipeline->RFEX_WRITE.instruction;
 
     printf("\nInstruction decoded:\n");
-    printf("instruction: 0x%08X\n", big_endian_instruction);
+    printf("instruction: 0x%08X\n", instruction);
     printf("opcode: 0x%02X\n", pipeline->RFEX_WRITE.opcode);
     printf("rs (source reg): %d\n", pipeline->RFEX_WRITE.rs);
     printf("rt (temp reg): %d\n", pipeline->RFEX_WRITE.rt);
@@ -144,8 +140,8 @@ printf("\n================================\n");
 printf("CYCLE %d\n", counter++);
 printf("================================\n\n");
 /* NSTRUCTION CACHE / REGISTER FETCH */
-    uint32_t instruction_write = byte_swap(cpu->pipeline.ICRF_WRITE.instruction);
-    uint32_t instruction_read = byte_swap(cpu->pipeline.ICRF_READ.instruction);
+    uint32_t instruction_write = cpu->pipeline.ICRF_WRITE.instruction;
+    uint32_t instruction_read = cpu->pipeline.ICRF_READ.instruction;
     printf("IC/RF Write\n");
     printf("-----------\n");
     printf("Instruction = 0x%08X\n\n", instruction_write);
@@ -229,4 +225,23 @@ printf("================================\n\n");
     printf("LWDataValue = %llX, ALUResult = %llX, WriteRegNum = %d, RegWrite = %d\n\n\n",
                 cpu->pipeline.DCWB_READ.LW_Data_Value, cpu->pipeline.DCWB_READ.ALU_Result, cpu->pipeline.DCWB_READ.Write_Reg_Num,
                 cpu->pipeline.DCWB_READ.RegWrite);           
+}
+
+void print_rsp(RSP *rsp) {
+
+    printf("----------------------\n");
+    printf("REALITY SIGNAL PROCESSOR DUMP:\n\n");
+    printf("----------------------\n");
+    printf("Registers:\n");
+    printf("sp_dma_spaddr: 0x%X\n", rsp->sp_dma_spaddr);
+    printf("sp_dma_ramaddr: 0x%X\n", rsp->sp_dma_ramaddr);
+    printf("sp_dma_rdlen: 0x%X\n", rsp->sp_dma_rdlen);
+    printf("sp_dma_wrlen: 0x%X\n", rsp->sp_dma_wrlen);
+    printf("sp_status: 0x%X\n", rsp->sp_status);
+    printf("sp_dma_full: 0x%X\n", rsp->sp_dma_full);
+    printf("sp_dma_busy: 0x%X\n", rsp->sp_dma_busy);
+    printf("sp_semaphore: 0x%X\n\n", rsp->sp_semaphore);
+
+    //print imem
+    //print dmem
 }

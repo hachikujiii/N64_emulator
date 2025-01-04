@@ -15,5 +15,6 @@ typedef struct {
 int cold_reset(N64 *n64);
 void init_n64(N64 *n64);
 void init_cpu(N64 *n64);
+void init_rsp(N64 *n64);
 
 #endif

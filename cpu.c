@@ -18,6 +18,7 @@ void decode(Pipeline *pipeline) {
     pipeline->RFEX_WRITE.immediate = inst & 0xFFFF;
     pipeline->RFEX_WRITE.SEOffset = (int32_t)pipeline->RFEX_WRITE.immediate;
     pipeline->RFEX_WRITE.delay_slot = pipeline->ICRF_READ.delay_slot;
+    pipeline->RFEX_WRITE.instruction = inst;
 
     set_flags(pipeline);
     
@@ -98,56 +99,6 @@ void set_flags(Pipeline *pipeline) {
     pipeline->RFEX_WRITE.control = flags[pipeline->RFEX_WRITE.opcode];
 }
 
-void insert_nop(Pipeline *pipeline, Stage stage) {
-
-    Control nop_con;
-    nop_con.format_type = NOP;
-    nop_con.mem_access = NO_ACCESS;
-    nop_con.op_type = INVALID;
-
-    switch(stage) {
-        case IC:
-            pipeline->ICRF_WRITE.instruction = 0;
-            break;
-        case RF:
-            pipeline->RFEX_WRITE.control = nop_con;
-            pipeline->RFEX_WRITE.instruction = 0;
-            pipeline->RFEX_WRITE.opcode = 0;
-            pipeline->RFEX_WRITE.rs = 0; 
-            pipeline->RFEX_WRITE.rt = 0;
-            pipeline->RFEX_WRITE.rd = 0;
-            pipeline->RFEX_WRITE.shamt = 0;
-            pipeline->RFEX_WRITE.function = 0;
-            pipeline->RFEX_WRITE.immediate = 0;
-            pipeline->RFEX_WRITE.rs_val = 0;
-            pipeline->RFEX_WRITE.rt_val = 0;
-            pipeline->RFEX_WRITE.SEOffset = 0;
-            pipeline->RFEX_WRITE.branch_addr = 0;
-            pipeline->RFEX_WRITE.jump_addr = 0;
-            
-            pipeline->RFEX_WRITE.RegDst = 0;
-            pipeline->RFEX_WRITE.MemRead = 0;
-            pipeline->RFEX_WRITE.MemToReg = 0;
-            pipeline->RFEX_WRITE.MemWrite = 0;
-            pipeline->RFEX_WRITE.RegWrite = 0;
-            pipeline->RFEX_WRITE.ALUSrc = 0;
-            pipeline->RFEX_WRITE.Write_Reg_Num = 0;
-            break;
-        case EX:
-            pipeline->EXDC_WRITE.MemRead = 0;
-            pipeline->EXDC_WRITE.MemToReg = 0;
-            pipeline->EXDC_WRITE.MemWrite = 0;
-            pipeline->EXDC_WRITE.RegWrite = 0;
-            pipeline->EXDC_WRITE.ALU_Result = 0;
-            pipeline->EXDC_WRITE.Write_Reg_Num = 0;
-            pipeline->EXDC_WRITE.control = nop_con;
-            break;
-        case DC:
-            break;
-        case WB:
-            break;
-    }
-}
 
 void IC_stage(CPU *cpu) {
 
@@ -155,7 +106,6 @@ void IC_stage(CPU *cpu) {
 
     if(cpu->pipeline.HAZARD.stall) {
         cpu->pipeline.HAZARD.stall_count--;
-        cpu->PC = cpu->PC - 4;
         return;
     }
     //HAZARD FOR BRANCH CHECK BEFORE ANYTHING
@@ -190,30 +140,41 @@ void RF_stage(CPU *cpu) {
 
         if(cpu->pipeline.RFEX_READ.MemToReg) {
 
+            //HANDLES LOAD HAZARDS
             if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.RFEX_READ.Write_Reg_Num) || 
               (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.RFEX_READ.Write_Reg_Num)) {
                 cpu->pipeline.HAZARD.stall = 1;
+                cpu->pipeline.HAZARD.forward_load_result = 1;
+                cpu->pipeline.HAZARD.delay_IC_RF_copy = 1;
+                cpu->pipeline.HAZARD.delay_copy_count = 1;
                 cpu->pipeline.HAZARD.stall_count = EX;
                 return;
             }
         }
         
+        //HANDLES DATA HAZARDS
         if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.RFEX_READ.Write_Reg_Num) || 
            (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.RFEX_READ.Write_Reg_Num)) {
             cpu->pipeline.HAZARD.forward_ALU_result = 1;
             return;
         }
-    }
+    } else if (cpu->pipeline.EXDC_READ.RegWrite) {
 
-    if(cpu->pipeline.EXDC_READ.MemToReg) { 
+        if(cpu->pipeline.EXDC_READ.MemToReg) { 
 
-        if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.EXDC_READ.Write_Reg_Num) || 
-           (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.EXDC_READ.Write_Reg_Num)) {
+            if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.EXDC_READ.Write_Reg_Num) || 
+            (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.EXDC_READ.Write_Reg_Num)) {
 
-            cpu->pipeline.HAZARD.forward_load_result = 1;
-            return;
+                cpu->pipeline.HAZARD.forward_load_result = 1;
+                return;
+            }
+
+        } else {
+
         }
     }
+
+    
 
     
     if(cpu->pipeline.RFEX_WRITE.control.format_type == J_TYPE) {
@@ -239,6 +200,8 @@ void EX_stage(CPU *cpu) {
 
     if((cpu->pipeline.HAZARD.stall) && (cpu->pipeline.HAZARD.stall_count == 0)) {
         insert_nop(&cpu->pipeline, EX);
+        cpu->pipeline.HAZARD.stall = 0;
+        cpu->pipeline.HAZARD.stall_count = 0;
         return;
     }
 
@@ -274,12 +237,14 @@ void DC_stage(CPU *cpu) {
 
         cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
         cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
+        return;
         
     } else if(cpu->pipeline.DCWB_WRITE.control.mem_access == MEM_READ) {
 
         if(cpu->pipeline.DCWB_WRITE.control.op_type == LOAD) {
+
             uint32_t target_addr = cpu->pipeline.EXDC_READ.ALU_Result;
-            
+            cpu->pipeline.DCWB_WRITE.LW_Data_Value = cpu_read(cpu->mmu, target_addr);
 
             cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
             cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
@@ -294,8 +259,10 @@ void DC_stage(CPU *cpu) {
     if(cpu->pipeline.HAZARD.forward_load_result) {
         if (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.DCWB_WRITE.Write_Reg_Num) {
             cpu->pipeline.RFEX_WRITE.rt = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
+            cpu->pipeline.HAZARD.forward_load_result = 0;
         } else if (cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.DCWB_WRITE.Write_Reg_Num) {
             cpu->pipeline.RFEX_WRITE.rs = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
+            cpu->pipeline.HAZARD.forward_load_result = 0;
         }
     }
     //TODO: HANDLE MEM AND TLB :(
@@ -308,6 +275,7 @@ void WB_stage(CPU *cpu) {
     }
 
     uint64_t result = cpu->pipeline.DCWB_READ.ALU_Result;
+    uint64_t lw_value = cpu->pipeline.DCWB_READ.LW_Data_Value;
     int writeReg = cpu->pipeline.DCWB_READ.Write_Reg_Num;
 
     //best order might be f_type, then check store load etc
@@ -323,9 +291,14 @@ void WB_stage(CPU *cpu) {
         }
     } else if(cpu->pipeline.DCWB_READ.control.format_type == I_TYPE) {
         if (cpu->pipeline.DCWB_READ.RegWrite == 1) {
-
+            
+            if(cpu->pipeline.DCWB_READ.control.op_type == LOAD) {
+                cpu->regs[writeReg] = lw_value;
+            } else {
                 cpu->regs[writeReg] = result;
         }
+            }
+                
         
     }
     
@@ -333,7 +306,14 @@ void WB_stage(CPU *cpu) {
 
 void ReadToWrite(CPU *cpu) {
 
-    if (!cpu->pipeline.HAZARD.stall){
+    if (cpu->pipeline.HAZARD.delay_IC_RF_copy) {
+
+        cpu->pipeline.HAZARD.delay_copy_count--;
+        if(cpu->pipeline.HAZARD.delay_copy_count == 0) {
+            cpu->pipeline.HAZARD.delay_IC_RF_copy = 0;
+        }
+
+    } else {
         cpu->pipeline.ICRF_READ.instruction = cpu->pipeline.ICRF_WRITE.instruction;
         cpu->pipeline.ICRF_READ.delay_slot = cpu->pipeline.ICRF_WRITE.delay_slot;
 
