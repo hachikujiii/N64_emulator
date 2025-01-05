@@ -2,6 +2,8 @@
 #define RSP_H
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #define IMEM_SIZE 0x1000
 #define DMEM_SIZE 0x1000
@@ -28,7 +30,7 @@ void dma_read(RSP *rsp);
 void dma_write(RSP *rsp);
 
 uint32_t rsp_read_reg(RSP *rsp, uint32_t addr);
-void rsp__write_reg(RSP *rsp, uint32_t addr, uint32_t value);
+void rsp_write_reg(RSP *rsp, uint32_t addr, uint32_t value);
 uint32_t rsp_read_mem(RSP *rsp, uint32_t addr);
 void rsp_write_mem(RSP *rsp, uint32_t addr, uint32_t value);
 

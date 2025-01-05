@@ -22,8 +22,8 @@ int main(int argc, char *argv[]) {
     print_cpu(&n64->cpu);
     print_rsp(&n64->rcp.rsp);
     printf("\n\n");
-    int i = 18;
-    while(i > 0) { 
+
+    while(true) { 
         
         IC_stage(&n64->cpu);
         RF_stage(&n64->cpu);
@@ -35,6 +35,5 @@ int main(int argc, char *argv[]) {
         ReadToWrite(&n64->cpu);
         //special cases
         // ERET  0100 0010 0000 0000 0000 0000 0001 1000
-        i--;
     }     
 }

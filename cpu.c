@@ -3,7 +3,7 @@
 
 uint32_t fetch_instruction(CPU *cpu) {
 
-    return cpu_read(cpu->mmu, cpu->PC);
+    return cpu_bus_request(cpu->mmu, cpu->PC, 0, false);
 }
 
 void decode(Pipeline *pipeline) {
@@ -244,13 +244,21 @@ void DC_stage(CPU *cpu) {
         if(cpu->pipeline.DCWB_WRITE.control.op_type == LOAD) {
 
             uint32_t target_addr = cpu->pipeline.EXDC_READ.ALU_Result;
-            cpu->pipeline.DCWB_WRITE.LW_Data_Value = cpu_read(cpu->mmu, target_addr);
+            cpu->pipeline.DCWB_WRITE.LW_Data_Value = cpu_bus_request(cpu->mmu, target_addr, 0, false);
 
             cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
             cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
         }
         
-    } else {
+    } else if (cpu->pipeline.DCWB_WRITE.control.mem_access == MEM_WRITE) {
+        if(cpu->pipeline.DCWB_WRITE.control.op_type == STORE) {
+            uint32_t target_addr = cpu->pipeline.EXDC_READ.ALU_Result;
+            uint32_t word = cpu->pipeline.EXDC_READ.SW_Value;
+
+            cpu->pipeline.DCWB_WRITE.LW_Data_Value = cpu_bus_request(cpu->mmu, target_addr, word, true);
+        }
+         
+    } else{
         cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
         cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
     }
@@ -709,8 +717,17 @@ void SWL(CPU *cpu) {
 
 void SW(CPU *cpu) {
 
+    int64_t SEOffset = (int64_t)cpu->pipeline.RFEX_READ.immediate;
+    uint64_t rs_data = cpu->pipeline.RFEX_READ.rs_val;
+    cpu->pipeline.EXDC_WRITE.ALU_Result = rs_data + SEOffset;
+    cpu->pipeline.EXDC_WRITE.num_bytes = WORD;
     cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
-    printf("you havent done this instruction yet!\n");
+
+    if((cpu->pipeline.EXDC_WRITE.ALU_Result & 0x3) != 0) {
+        printf("address exception for LW\n");
+        exit(EXIT_FAILURE);
+    }
+
 }
 
 void SDL(CPU *cpu) {
