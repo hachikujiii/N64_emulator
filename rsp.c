@@ -1,5 +1,10 @@
 #include "rsp.h"
 
+void init_rsp(RSP *rsp) {
+    
+    rsp->sp_status = 1;
+}
+
 uint32_t rsp_read_reg(RSP *rsp, uint32_t addr) {
     switch(addr) {
         case 0x04040000:

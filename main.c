@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include "n64.h"
 #include "mystructs.h"
 #include "debug_sys.h"
 #include "rom_loading.h"
-#include <pthread.h>
+
 
 int main(int argc, char *argv[]) {
 
@@ -32,6 +33,7 @@ int main(int argc, char *argv[]) {
         WB_stage(&n64->cpu);
         print_pipeline(&n64->cpu);
         print_cpu(&n64->cpu);
+        //print_rsp(&n64->rcp.rsp);
         ReadToWrite(&n64->cpu);
         //special cases
         // ERET  0100 0010 0000 0000 0000 0000 0001 1000

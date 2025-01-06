@@ -10,7 +10,7 @@ typedef struct {
 
 } Serial_Interface;
 
-void init_si(Memory *mem, Serial_Interface *si);
+void init_si(Serial_Interface *si, Memory *mem);
 uint32_t read_pif(Serial_Interface *si, uint32_t address);
 
 #endif

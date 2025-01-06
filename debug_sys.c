@@ -154,6 +154,7 @@ printf("================================\n\n");
 
     printf("RF/EX Write\n");
     printf("-----------\n");
+    printf("Instruction: 0x%08X\n", cpu->pipeline.RFEX_WRITE.instruction);
     printf("Control: Format = %s, Op type = %s, Mem access = %s\n", 
                 format_type_to_string(cpu->pipeline.RFEX_WRITE.control.format_type),
                 instruction_type_to_string(cpu->pipeline.RFEX_WRITE.control.op_type),
@@ -169,6 +170,7 @@ printf("================================\n\n");
 
     printf("RF/EX Read\n");
     printf("----------\n");
+    printf("Instruction: 0x%08X\n", cpu->pipeline.RFEX_READ.instruction);
     printf("Control: Format = %s, Op type = %s, Mem access = %s\n", 
                 format_type_to_string(cpu->pipeline.RFEX_READ.control.format_type),
                 instruction_type_to_string(cpu->pipeline.RFEX_READ.control.op_type),

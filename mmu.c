@@ -1,14 +1,11 @@
 #include "mmu.h"
 #include "rom_loading.h"
 #include "cpu.h"
-#include "serial_interface.h"
-#include "parallel_interface.h"
+
 #include <stdlib.h>
 
-void init_mmu(MMU *mmu, Memory *mem, RSP *rsp) {
+void init_mmu(MMU *mmu, RSP *rsp) {
 
-    init_si(mem, &mmu->si);
-    init_pi(mem, &mmu->pi);
     mmu->rsp = rsp;
 }
 
@@ -24,7 +21,7 @@ uint32_t (*read_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address) =
     [MI_REGS] = NULL,
     [VI_REGS] = NULL,
     [AI_REGS] = NULL,
-    [PI_REGS] = NULL,
+    [PI_REGS] = pi_read_reg_wrapper,
     [RI_REGS] = NULL,
     [SI_REGS] = NULL,
     [CART_D2A1] = NULL,
@@ -49,7 +46,7 @@ void (*write_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address, uint
     [MI_REGS] = NULL,
     [VI_REGS] = NULL,
     [AI_REGS] = NULL,
-    [PI_REGS] = NULL,
+    [PI_REGS] = pi_write_reg_wrapper,
     [RI_REGS] = NULL,
     [SI_REGS] = NULL,
     [CART_D2A1] = NULL,
@@ -83,7 +80,7 @@ uint32_t cpu_bus_request(MMU *mmu, uint32_t address, uint32_t word, bool access)
 
 uint32_t read_pif_wrapper(MMU *mmu, uint32_t physical_address) {
 
-    return read_pif(&(mmu->si), physical_address);
+    return read_pif((mmu->si), physical_address);
 }
 
 uint32_t read_sp_reg_wrapper(MMU *mmu, uint32_t physical_address) {
@@ -95,6 +92,20 @@ void write_sp_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
 
     rsp_write_reg((mmu->rsp), physical_address, word);
 }
+
+uint32_t pi_read_reg_wrapper(MMU *mmu, uint32_t physical_address) {
+
+    return pi_read_reg((mmu->pi), physical_address);
+}
+
+
+void pi_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
+
+    pi_write_reg((mmu->pi), physical_address, word);
+}
+
+
+
 
 bool inRange (uint32_t address, uint32_t start, uint32_t end) {
 

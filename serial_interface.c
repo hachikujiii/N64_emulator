@@ -1,7 +1,7 @@
 #include "serial_interface.h"
 #include "mapping.h"
 
-void init_si(Memory *mem, Serial_Interface *si){
+void init_si(Serial_Interface *si, Memory *mem){
 
     si->pif = mem->pif_rom;
 }
