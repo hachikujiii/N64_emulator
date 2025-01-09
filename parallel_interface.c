@@ -36,36 +36,48 @@ uint32_t pi_read_reg(Parallel_Interface *pi, uint32_t addr) {
     return 0;  // or handle invalid address
 }
 
-uint32_t pi_write_reg(Parallel_Interface *pi, uint32_t addr, uint32_t word) {
+void pi_write_reg(Parallel_Interface *pi, uint32_t addr, uint32_t word) {
 
     switch(addr) {
 
         case 0x04600000:
             pi->pi_dram_addr = word;
+            break;
 
         case 0x04600004:
             pi->pi_cart_addr = word;
+            break;
 
         case 0x04600008:
             pi->pi_rd_len = word;
+            break;
 
         case 0x0460000C:
             pi->pi_wr_len = word;
-            
+            break;
+
         case 0x04600010:  
             pi->pi_status = word;
-        
+            break;
+
         case 0x04600014:  
             pi->pi_bsd_domn_lat = word;
-            
+            break;
+
         case 0x04600018:  // SP_DMA_BUSY_REG
             pi->pi_bsd_domn_pwd = word;
-            
+            break;
+
         case 0x0460001C:  // SP_SEMAPHORE_REG
             pi->pi_bsd_domn_pgs = word;
-            
+            break;
+
         case 0x04600020:
             pi->pi_bsd_domn_rls = word;
-    }
-    return 0;  // or handle invalid address
+            break;
+        
+        default:
+            printf("out of range PI. exiting.\n");
+            exit(1);
+    }    
 }

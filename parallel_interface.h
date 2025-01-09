@@ -2,6 +2,8 @@
 #define PARALLEL_INTERFACE_H
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "memory.h"
 
 typedef struct {
@@ -22,6 +24,6 @@ typedef struct {
 
 void init_pi(Parallel_Interface *pi, Memory *mem);
 uint32_t pi_read_reg(Parallel_Interface *pi, uint32_t addr);
-uint32_t pi_write_reg(Parallel_Interface *pi, uint32_t addr, uint32_t word);
+void pi_write_reg(Parallel_Interface *pi, uint32_t addr, uint32_t word);
 
 #endif

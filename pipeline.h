@@ -3,6 +3,8 @@
 
 #include "control.h"
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef enum {
     IC = 0,
@@ -82,16 +84,20 @@ typedef struct {
 } DCWB_Pipeline;
 
 typedef struct {
+    bool is_dirty;
+    bool forward_rs;
+    bool forward_rt;
+    uint8_t count_write;
+} RegStatus;
+
+typedef struct {
     bool stall;               // Flag indicating whether the pipeline should stall
     bool branch;
-    bool forward_ALU_result;
-    bool forward_load_result;
     bool delay_IC_RF_copy;
 
-    Stage stage;
+    RegStatus reg_status[100];
     int stall_count;
     int delay_copy_count;
-
 
 } HazardControl;
 
@@ -113,5 +119,9 @@ typedef struct {
 
 void init_pipeline(Pipeline *pipeline);
 void insert_nop(Pipeline *pipeline, Stage stage);
+void hazard_detection(Pipeline *pipeline);
+void check_data_forwarding(Pipeline *pipeline);
+uint64_t forward_data(Pipeline *pipeline, uint8_t reg_num);
+void ReadToWrite(Pipeline *pipeline);
 
 #endif

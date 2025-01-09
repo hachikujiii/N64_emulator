@@ -76,7 +76,7 @@ typedef struct {
     //TODO:
 } CPU;
 
-extern void (*instruction_table[64])(CPU *);
+extern void (*opcode_table[64])(CPU *);
 extern void (*function_table[64])(CPU *);
 
 extern Control flags[64];
@@ -90,7 +90,6 @@ void RF_stage(CPU *cpu);
 void EX_stage(CPU *cpu);
 void DC_stage(CPU *cpu);
 void WB_stage(CPU *cpu);
-void ReadToWrite(CPU *cpu);
 
 //opcode functions
 void instruction_exception(CPU *cpu);
@@ -112,7 +111,7 @@ void LUI(CPU *cpu);
 void MTC0(CPU *cpu);
 void MTC1(CPU *cpu);
 void BEQL(CPU *cpu);
-void BNEQL(CPU *cpu);
+void BNEL(CPU *cpu);
 void BLEZL(CPU *cpu);
 void BGTZL(CPU *cpu);
 void DADDI(CPU *cpu);

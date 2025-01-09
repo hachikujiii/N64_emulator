@@ -15,12 +15,12 @@ uint32_t (*read_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address) =
     [RDRAM_REGS] = NULL,
     [SPDMEM] = NULL,
     [SPIMEM] = NULL,
-    [SP_REGS] = read_sp_reg_wrapper,
+    [SP_REGS] = sp_read_reg_wrapper,
     [DPCOM] = NULL,
     [DPSPAN] = NULL,
     [MI_REGS] = NULL,
-    [VI_REGS] = NULL,
-    [AI_REGS] = NULL,
+    [VI_REGS] = vi_read_reg_wrapper,
+    [AI_REGS] = ai_read_reg_wrapper,
     [PI_REGS] = pi_read_reg_wrapper,
     [RI_REGS] = NULL,
     [SI_REGS] = NULL,
@@ -40,12 +40,12 @@ void (*write_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address, uint
     [RDRAM_REGS] = NULL,
     [SPDMEM] = NULL,
     [SPIMEM] = NULL,
-    [SP_REGS] = write_sp_reg_wrapper,
+    [SP_REGS] = sp_write_reg_wrapper,
     [DPCOM] = NULL,
     [DPSPAN] = NULL,
     [MI_REGS] = NULL,
-    [VI_REGS] = NULL,
-    [AI_REGS] = NULL,
+    [VI_REGS] = vi_write_reg_wrapper,
+    [AI_REGS] = ai_write_reg_wrapper,
     [PI_REGS] = pi_write_reg_wrapper,
     [RI_REGS] = NULL,
     [SI_REGS] = NULL,
@@ -62,46 +62,69 @@ void (*write_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address, uint
 
 uint32_t cpu_bus_request(MMU *mmu, uint32_t address, uint32_t word, bool access) {
 
-    uint32_t physical_address = map_virtual(mmu, address);  // Map the virtual address to physical
-    uint8_t range = map_physical(physical_address);  // Determine which range the address belongs to
+    uint32_t physical_address = map_virtual(mmu, address); 
+    uint8_t range = map_physical(physical_address); 
 
     // If access is read (0), call the corresponding read function
     if (access == 0) {
         uint32_t (*read_func)(MMU *mmu, uint32_t physical_address) = read_table[range];
-        return read_func(mmu, physical_address);  // Call the read function for this range
+        return read_func(mmu, physical_address);  
     }
     // If access is write (1), call the corresponding write function
     else {
         void (*write_func)(MMU *mmu, uint32_t physical_address, uint32_t data) = write_table[range];
-        write_func(mmu, physical_address, word);  // Call the write function for this range
-        return 0;  // Return value can be adjusted depending on your design
+        write_func(mmu, physical_address, word);  
+        return 0; 
     }
-}
+} 
 
 uint32_t read_pif_wrapper(MMU *mmu, uint32_t physical_address) {
 
-    return read_pif((mmu->si), physical_address);
+    return read_pif(mmu->si, physical_address);
 }
 
-uint32_t read_sp_reg_wrapper(MMU *mmu, uint32_t physical_address) {
 
-    return rsp_read_reg((mmu->rsp), physical_address);
+uint32_t sp_read_reg_wrapper(MMU *mmu, uint32_t physical_address) {
+
+    return rsp_read_reg(mmu->rsp, physical_address);
 }
 
-void write_sp_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
+void sp_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
 
-    rsp_write_reg((mmu->rsp), physical_address, word);
+    rsp_write_reg(mmu->rsp, physical_address, word);
 }
+
 
 uint32_t pi_read_reg_wrapper(MMU *mmu, uint32_t physical_address) {
 
-    return pi_read_reg((mmu->pi), physical_address);
+    return pi_read_reg(mmu->pi, physical_address);
 }
-
 
 void pi_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
 
-    pi_write_reg((mmu->pi), physical_address, word);
+    pi_write_reg(mmu->pi, physical_address, word);
+}
+
+
+uint32_t vi_read_reg_wrapper(MMU *mmu, uint32_t physical_address) {
+
+    return vi_read_reg(mmu->vi, physical_address);
+}
+
+void vi_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
+
+    vi_write_reg(mmu->vi, physical_address, word);
+}
+
+
+uint32_t ai_read_reg_wrapper(MMU *mmu, uint32_t physical_address) {
+
+    return ai_read_reg(mmu->ai, physical_address);
+}
+
+void ai_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
+
+    ai_write_reg(mmu->ai, physical_address, word);
 }
 
 

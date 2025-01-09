@@ -13,6 +13,7 @@ typedef struct {
     Ram_Interface ri;
     Serial_Interface si;
     Video_Interface vi;
+    Audio_Interface ai;
     //RDP rdp;
 } RCP;
 

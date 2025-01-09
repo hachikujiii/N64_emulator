@@ -6,10 +6,13 @@ void init_rcp(RCP *rcp, Memory *mem) {
     init_pi(&rcp->pi, mem);
     init_rsp(&rcp->rsp);
     init_mmu(&rcp->mmu, &rcp->rsp);
+    init_ai(&rcp->ai);
 
+    
     rcp->mmu.si = &rcp->si;
     rcp->mmu.pi = &rcp->pi;
     rcp->mmu.ri = &rcp->ri;
     rcp->mmu.vi = &rcp->vi;
+    rcp->mmu.ai = &rcp->ai;
     
 }

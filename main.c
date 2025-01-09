@@ -33,8 +33,8 @@ int main(int argc, char *argv[]) {
         WB_stage(&n64->cpu);
         print_pipeline(&n64->cpu);
         print_cpu(&n64->cpu);
-        //print_rsp(&n64->rcp.rsp);
-        ReadToWrite(&n64->cpu);
+        print_rsp(&n64->rcp.rsp);
+        ReadToWrite(&n64->cpu.pipeline);
         //special cases
         // ERET  0100 0010 0000 0000 0000 0000 0001 1000
     }     

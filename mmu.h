@@ -12,6 +12,7 @@
 #include "serial_interface.h"
 #include "video_interface.h"
 #include "ram_interface.h"
+#include "audio_interface.h"
 
 #define CART_ROM_SIZE      0x2000000    //32MB ROM
 #define RDRAM_SIZE         0x800000     //8MB RAM
@@ -51,6 +52,7 @@ typedef struct {
     Ram_Interface *ri;
     Serial_Interface *si;
     Video_Interface *vi;
+    Audio_Interface *ai;
 
 } MMU;
 
@@ -63,11 +65,17 @@ uint8_t map_physical(uint32_t physical_address);
 
 uint32_t read_pif_wrapper(MMU *mmu, uint32_t physical_address);
 
-uint32_t read_sp_reg_wrapper(MMU *mmu, uint32_t physical_address);
-void write_sp_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
+uint32_t sp_read_reg_wrapper(MMU *mmu, uint32_t physical_address);
+void sp_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
 
 uint32_t pi_read_reg_wrapper(MMU *mmu, uint32_t physical_address);
 void pi_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
+
+uint32_t vi_read_reg_wrapper(MMU *mmu, uint32_t physical_address);
+void vi_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
+
+uint32_t ai_read_reg_wrapper(MMU *mmu, uint32_t physical_address);
+void ai_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
 
 extern uint32_t (*read_table[PHYSICAL_RANGE_COUNT])(MMU *mmu, uint32_t physical_address);
 extern void (*write_table[PHYSICAL_RANGE_COUNT])(MMU *mmu, uint32_t physical_address, uint32_t data);

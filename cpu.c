@@ -34,23 +34,7 @@ void decode(Pipeline *pipeline) {
 
     } else if(pipeline->RFEX_WRITE.control.format_type == I_TYPE) {
 
-        if(pipeline->RFEX_WRITE.control.mem_access == COPROC) {
-
-
-            //MFCO rt = gpr, rd = cp0 NO SOURCE
-            //MTC0 rt = gpr, rd = cp0 NO SOURCE
-            pipeline->RFEX_WRITE.rd += 32;
-
-            pipeline->RFEX_WRITE.RegDst = 1;
-            pipeline->RFEX_WRITE.MemRead = 0;
-            pipeline->RFEX_WRITE.MemToReg = 0;
-            pipeline->RFEX_WRITE.MemWrite = 0;
-            pipeline->RFEX_WRITE.ALUSrc = 0;
-            pipeline->RFEX_WRITE.RegWrite = 1;
-            pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rd;
-            return;
-
-        } else if(pipeline->RFEX_WRITE.control.op_type == LOAD) {
+        if(pipeline->RFEX_WRITE.control.op_type == LOAD) {
             pipeline->RFEX_WRITE.RegDst = 0;
             pipeline->RFEX_WRITE.MemRead = 1;
             pipeline->RFEX_WRITE.MemToReg = 1;
@@ -74,8 +58,23 @@ void decode(Pipeline *pipeline) {
             pipeline->RFEX_WRITE.MemWrite = 0;
             pipeline->RFEX_WRITE.ALUSrc = 0;
             pipeline->RFEX_WRITE.RegWrite = 1;
-            pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rt;   
-        } 
+            pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rt;  
+
+        } else if(pipeline->RFEX_WRITE.control.op_type == COPROC) {
+
+            //MFCO rt = gpr, rd = cp0 NO SOURCE
+            //MTC0 rt = gpr, rd = cp0 NO SOURCE
+            pipeline->RFEX_WRITE.rd += 32;
+
+            pipeline->RFEX_WRITE.RegDst = 0;
+            pipeline->RFEX_WRITE.MemRead = 0;
+            pipeline->RFEX_WRITE.MemToReg = 0;
+            pipeline->RFEX_WRITE.MemWrite = 0;
+            pipeline->RFEX_WRITE.ALUSrc = 0;
+            pipeline->RFEX_WRITE.RegWrite = 1;
+            pipeline->RFEX_WRITE.Write_Reg_Num = pipeline->RFEX_WRITE.rd;
+            return;
+        }
 
     } else if(pipeline->RFEX_WRITE.control.format_type == J_TYPE) {
 
@@ -89,10 +88,14 @@ void decode(Pipeline *pipeline) {
                 pipeline->RFEX_WRITE.Write_Reg_Num = 0;
             }
 
+        pipeline->RFEX_WRITE.branch_addr = pipeline->RFEX_WRITE.delay_slot + (((int64_t) pipeline->RFEX_WRITE.immediate) << 2);
+        //cpu->pipeline.RFEX_WRITE.jump_addr = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF; //fix this
     } else {
         printf("NOT CP0 RTYPE, ITYPE OR ALU\n");
         exit(EXIT_FAILURE);
     }
+
+    
 }
 
 void set_flags(Pipeline *pipeline) {
@@ -100,9 +103,9 @@ void set_flags(Pipeline *pipeline) {
 }
 
 
-void IC_stage(CPU *cpu) {
 
-    cpu->pipeline.HAZARD.stage = IC;
+
+void IC_stage(CPU *cpu) {
 
     if(cpu->pipeline.HAZARD.stall) {
         cpu->pipeline.HAZARD.stall_count--;
@@ -118,7 +121,6 @@ void IC_stage(CPU *cpu) {
 }
 
 void RF_stage(CPU *cpu) {
-    cpu->pipeline.HAZARD.stage = RF;
 
     if(cpu->pipeline.HAZARD.stall) {
         cpu->pipeline.HAZARD.stall_count--;
@@ -131,66 +133,23 @@ void RF_stage(CPU *cpu) {
     }
     
     decode(&cpu->pipeline);
-    
+
+    //load reg data even if it is stale
     cpu->pipeline.RFEX_WRITE.rs_val = cpu->regs[cpu->pipeline.RFEX_WRITE.rs];
     cpu->pipeline.RFEX_WRITE.rt_val = cpu->regs[cpu->pipeline.RFEX_WRITE.rt];
-    
-    //check for hazards. forward ALU res from EX->RF if stale data is read
-    if(cpu->pipeline.RFEX_READ.RegWrite) { 
 
-        if(cpu->pipeline.RFEX_READ.MemToReg) {
+    hazard_detection(&cpu->pipeline);
 
-            //HANDLES LOAD HAZARDS
-            if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.RFEX_READ.Write_Reg_Num) || 
-              (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.RFEX_READ.Write_Reg_Num)) {
-                cpu->pipeline.HAZARD.stall = 1;
-                cpu->pipeline.HAZARD.forward_load_result = 1;
-                cpu->pipeline.HAZARD.delay_IC_RF_copy = 1;
-                cpu->pipeline.HAZARD.delay_copy_count = 1;
-                cpu->pipeline.HAZARD.stall_count = EX;
-                return;
-            }
-        }
-        
-        //HANDLES DATA HAZARDS
-        if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.RFEX_READ.Write_Reg_Num) || 
-           (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.RFEX_READ.Write_Reg_Num)) {
-            cpu->pipeline.HAZARD.forward_ALU_result = 1;
-            return;
-        }
-    } else if (cpu->pipeline.EXDC_READ.RegWrite) {
-
-        if(cpu->pipeline.EXDC_READ.MemToReg) { 
-
-            if((cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.EXDC_READ.Write_Reg_Num) || 
-            (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.EXDC_READ.Write_Reg_Num)) {
-
-                cpu->pipeline.HAZARD.forward_load_result = 1;
-                return;
-            }
-
-        } else {
-
-        }
-    }
-
-    
-
-    
-    if(cpu->pipeline.RFEX_WRITE.control.format_type == J_TYPE) {
-        cpu->pipeline.RFEX_WRITE.branch_addr = cpu->pipeline.RFEX_WRITE.delay_slot + (((int64_t) cpu->pipeline.RFEX_WRITE.immediate) << 2);
-        //cpu->pipeline.RFEX_WRITE.jump_addr = cpu->pipeline.RFEX_READ.instruction.instruction & 0x03FFFFFF; //fix this
-    }
 }
 
 void EX_stage(CPU *cpu) {
-    cpu->pipeline.HAZARD.stage = EX;
     
     if(cpu->pipeline.RFEX_READ.control.format_type == NOP) {
         insert_nop(&cpu->pipeline, EX);
         return;
     }
 
+    //MAKE PASS SIGNALS FUNCTION
     cpu->pipeline.EXDC_WRITE.control = cpu->pipeline.RFEX_READ.control;
     cpu->pipeline.EXDC_WRITE.MemRead = cpu->pipeline.RFEX_READ.MemRead;
     cpu->pipeline.EXDC_WRITE.MemWrite = cpu->pipeline.RFEX_READ.MemWrite;
@@ -205,17 +164,10 @@ void EX_stage(CPU *cpu) {
         return;
     }
 
+    //if bool allow forwarding == true {}
+    check_data_forwarding(&cpu->pipeline);
+
     execute_instruction(cpu);
-
-    if (cpu->pipeline.HAZARD.forward_ALU_result) {
-        if (cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.EXDC_WRITE.Write_Reg_Num) {
-            cpu->pipeline.RFEX_WRITE.rs_val = cpu->pipeline.EXDC_WRITE.ALU_Result;
-
-        } else if (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.EXDC_WRITE.Write_Reg_Num) {
-            cpu->pipeline.RFEX_WRITE.rt_val = cpu->pipeline.EXDC_WRITE.ALU_Result;
-        }
-        cpu->pipeline.HAZARD.forward_ALU_result = 0;
-    }
 }
 
 void DC_stage(CPU *cpu) {
@@ -233,12 +185,22 @@ void DC_stage(CPU *cpu) {
     cpu->pipeline.DCWB_WRITE.RegWrite = cpu->pipeline.EXDC_READ.RegWrite;
     cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
 
+
     if(cpu->pipeline.DCWB_WRITE.control.mem_access == NO_ACCESS){
 
         cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
         cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
-        return;
-        
+
+        if(cpu->pipeline.DCWB_WRITE.control.op_type == COPROC) {
+
+            if(cpu->pipeline.DCWB_WRITE.RegWrite) {
+                cpu->regs[cpu->pipeline.DCWB_WRITE.Write_Reg_Num] = cpu->pipeline.DCWB_WRITE.ALU_Result;
+            }
+            //TODO: if reg_read ()
+        }
+
+        //TODO: if cp1 ....
+
     } else if(cpu->pipeline.DCWB_WRITE.control.mem_access == MEM_READ) {
 
         if(cpu->pipeline.DCWB_WRITE.control.op_type == LOAD) {
@@ -251,28 +213,15 @@ void DC_stage(CPU *cpu) {
         }
         
     } else if (cpu->pipeline.DCWB_WRITE.control.mem_access == MEM_WRITE) {
+
         if(cpu->pipeline.DCWB_WRITE.control.op_type == STORE) {
             uint32_t target_addr = cpu->pipeline.EXDC_READ.ALU_Result;
             uint32_t word = cpu->pipeline.EXDC_READ.SW_Value;
 
             cpu->pipeline.DCWB_WRITE.LW_Data_Value = cpu_bus_request(cpu->mmu, target_addr, word, true);
         }
-         
-    } else{
-        cpu->pipeline.DCWB_WRITE.Write_Reg_Num = cpu->pipeline.EXDC_READ.Write_Reg_Num;
-        cpu->pipeline.DCWB_WRITE.ALU_Result = cpu->pipeline.EXDC_READ.ALU_Result;
     }
     
-
-    if(cpu->pipeline.HAZARD.forward_load_result) {
-        if (cpu->pipeline.RFEX_WRITE.rt == cpu->pipeline.DCWB_WRITE.Write_Reg_Num) {
-            cpu->pipeline.RFEX_WRITE.rt = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
-            cpu->pipeline.HAZARD.forward_load_result = 0;
-        } else if (cpu->pipeline.RFEX_WRITE.rs == cpu->pipeline.DCWB_WRITE.Write_Reg_Num) {
-            cpu->pipeline.RFEX_WRITE.rs = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
-            cpu->pipeline.HAZARD.forward_load_result = 0;
-        }
-    }
     //TODO: HANDLE MEM AND TLB :(
 }
 
@@ -285,87 +234,46 @@ void WB_stage(CPU *cpu) {
     uint64_t result = cpu->pipeline.DCWB_READ.ALU_Result;
     uint64_t lw_value = cpu->pipeline.DCWB_READ.LW_Data_Value;
     int writeReg = cpu->pipeline.DCWB_READ.Write_Reg_Num;
+        
+    if(cpu->pipeline.DCWB_READ.RegWrite) {
 
-    //best order might be f_type, then check store load etc
-    if(cpu->pipeline.DCWB_READ.control.format_type == R_TYPE) {
-        if (cpu->pipeline.DCWB_READ.RegWrite == 1) {
-        if (writeReg == REG_HI) {
-            cpu->regs[REG_HI] = result;  // Write to HI register
-        } else if (writeReg == REG_LO) {
-            cpu->regs[REG_LO] = result;
-        } else {
-            cpu->regs[writeReg] = result;
-        }  
-        }
-    } else if(cpu->pipeline.DCWB_READ.control.format_type == I_TYPE) {
-        if (cpu->pipeline.DCWB_READ.RegWrite == 1) {
-            
-            if(cpu->pipeline.DCWB_READ.control.op_type == LOAD) {
-                cpu->regs[writeReg] = lw_value;
+        if(cpu->pipeline.DCWB_READ.control.format_type == R_TYPE) {
+
+            if (writeReg == REG_HI) {
+                cpu->regs[REG_HI] = result;  // Write to HI register
+            } else if (writeReg == REG_LO) {
+                cpu->regs[REG_LO] = result;
             } else {
                 cpu->regs[writeReg] = result;
-        }
+            }  
+
+        } else if(cpu->pipeline.DCWB_READ.control.format_type == I_TYPE) {
+   
+            if(cpu->pipeline.DCWB_READ.control.op_type == LOAD) {
+                cpu->regs[writeReg] = lw_value;
+            } else if((cpu->pipeline.DCWB_READ.control.op_type == STORE) ||
+                (cpu->pipeline.DCWB_READ.control.op_type == COPROC)){
+                    //do nothing
+            } else {
+                cpu->regs[writeReg] = result;
             }
-                
-        
-    }
-    
-}
-
-void ReadToWrite(CPU *cpu) {
-
-    if (cpu->pipeline.HAZARD.delay_IC_RF_copy) {
-
-        cpu->pipeline.HAZARD.delay_copy_count--;
-        if(cpu->pipeline.HAZARD.delay_copy_count == 0) {
-            cpu->pipeline.HAZARD.delay_IC_RF_copy = 0;
         }
 
-    } else {
-        cpu->pipeline.ICRF_READ.instruction = cpu->pipeline.ICRF_WRITE.instruction;
-        cpu->pipeline.ICRF_READ.delay_slot = cpu->pipeline.ICRF_WRITE.delay_slot;
+        if(cpu->pipeline.HAZARD.reg_status[writeReg].is_dirty && 
+           cpu->pipeline.HAZARD.reg_status[writeReg].count_write == 1) {
 
-        cpu->pipeline.RFEX_READ.instruction = cpu->pipeline.RFEX_WRITE.instruction;
-        cpu->pipeline.RFEX_READ.delay_slot = cpu->pipeline.RFEX_WRITE.delay_slot;
-        cpu->pipeline.RFEX_READ.control = cpu->pipeline.RFEX_WRITE.control;
-        cpu->pipeline.RFEX_READ.opcode = cpu->pipeline.RFEX_WRITE.opcode; 
-        cpu->pipeline.RFEX_READ.rs = cpu->pipeline.RFEX_WRITE.rs;
-        cpu->pipeline.RFEX_READ.rt = cpu->pipeline.RFEX_WRITE.rt;
-        cpu->pipeline.RFEX_READ.rd = cpu->pipeline.RFEX_WRITE.rd;
-        cpu->pipeline.RFEX_READ.shamt = cpu->pipeline.RFEX_WRITE.shamt;
-        cpu->pipeline.RFEX_READ.function = cpu->pipeline.RFEX_WRITE.function;
-        cpu->pipeline.RFEX_READ.immediate = cpu->pipeline.RFEX_WRITE.immediate;
-        cpu->pipeline.RFEX_READ.SEOffset = cpu->pipeline.RFEX_WRITE.SEOffset;
-        cpu->pipeline.RFEX_READ.rs_val = cpu->pipeline.RFEX_WRITE.rs_val;
-        cpu->pipeline.RFEX_READ.rt_val = cpu->pipeline.RFEX_WRITE.rt_val;
-        cpu->pipeline.RFEX_READ.branch_addr = cpu->pipeline.RFEX_WRITE.branch_addr;
-        cpu->pipeline.RFEX_READ.jump_addr = cpu->pipeline.RFEX_WRITE.jump_addr;
-        cpu->pipeline.RFEX_READ.MemRead = cpu->pipeline.RFEX_WRITE.MemRead;
-        cpu->pipeline.RFEX_READ.MemToReg = cpu->pipeline.RFEX_WRITE.MemToReg;
-        cpu->pipeline.RFEX_READ.MemWrite = cpu->pipeline.RFEX_WRITE.MemWrite;
-        cpu->pipeline.RFEX_READ.RegWrite = cpu->pipeline.RFEX_WRITE.RegWrite;
-        cpu->pipeline.RFEX_READ.RegDst = cpu->pipeline.RFEX_WRITE.RegDst;
-        cpu->pipeline.RFEX_READ.Write_Reg_Num = cpu->pipeline.RFEX_WRITE.Write_Reg_Num;
+            cpu->pipeline.HAZARD.reg_status[writeReg].is_dirty = false;
+            cpu->pipeline.HAZARD.reg_status[writeReg].count_write = 0;
+
+        } else if (cpu->pipeline.HAZARD.reg_status[writeReg].is_dirty && 
+                   cpu->pipeline.HAZARD.reg_status[writeReg].count_write > 1) {
+
+            cpu->pipeline.HAZARD.reg_status[writeReg].count_write--;
+        }
     }
-
-    cpu->pipeline.EXDC_READ.control = cpu->pipeline.EXDC_WRITE.control;
-    cpu->pipeline.EXDC_READ.ALU_Result = cpu->pipeline.EXDC_WRITE.ALU_Result;
-    cpu->pipeline.EXDC_READ.SW_Value = cpu->pipeline.EXDC_WRITE.SW_Value;
-    cpu->pipeline.EXDC_READ.MemRead = cpu->pipeline.EXDC_WRITE.MemRead;
-    cpu->pipeline.EXDC_READ.MemToReg = cpu->pipeline.EXDC_WRITE.MemToReg;
-    cpu->pipeline.EXDC_READ.MemWrite = cpu->pipeline.EXDC_WRITE.MemWrite;
-    cpu->pipeline.EXDC_READ.RegWrite = cpu->pipeline.EXDC_WRITE.RegWrite;
-    cpu->pipeline.EXDC_READ.Read_Reg_Num = cpu->pipeline.EXDC_WRITE.Read_Reg_Num;
-    cpu->pipeline.EXDC_READ.Write_Reg_Num = cpu->pipeline.EXDC_WRITE.Write_Reg_Num;
-    cpu->pipeline.EXDC_READ.num_bytes = cpu->pipeline.EXDC_WRITE.num_bytes;
-
-    cpu->pipeline.DCWB_READ.control = cpu->pipeline.DCWB_WRITE.control;
-    cpu->pipeline.DCWB_READ.ALU_Result = cpu->pipeline.DCWB_WRITE.ALU_Result;
-    cpu->pipeline.DCWB_READ.LW_Data_Value = cpu->pipeline.DCWB_WRITE.LW_Data_Value;
-    cpu->pipeline.DCWB_READ.Write_Reg_Num = cpu->pipeline.DCWB_WRITE.Write_Reg_Num;
-    cpu->pipeline.DCWB_READ.RegWrite = cpu->pipeline.DCWB_WRITE.RegWrite;
-    cpu->pipeline.DCWB_READ.MemWrite = cpu->pipeline.DCWB_WRITE.MemWrite;
 }
+
+
 
 
 void instruction_exception(CPU *cpu) {
@@ -375,7 +283,7 @@ void instruction_exception(CPU *cpu) {
 
 void execute_instruction(CPU *cpu) {
 
-    instruction_table[cpu->pipeline.RFEX_READ.opcode](cpu);
+    opcode_table[cpu->pipeline.RFEX_READ.opcode](cpu);
 }
 
 void R_FORMAT(CPU *cpu) { 
@@ -564,13 +472,13 @@ void BEQL(CPU *cpu) {
     }
 }
 
-void BNEQL(CPU *cpu) {
+void BNEL(CPU *cpu) {
 
     uint32_t delay_slot = cpu->pipeline.RFEX_READ.delay_slot;
-    int32_t extended_offset = cpu->pipeline.RFEX_READ.immediate;
-    uint32_t b_target = ((extended_offset << 2) + delay_slot);
+    int32_t extended_offset = cpu->pipeline.RFEX_READ.SEOffset << 2;
+    uint32_t b_target = extended_offset + delay_slot;
 
-    if(cpu->regs[cpu->pipeline.RFEX_READ.rs] != cpu->regs[cpu->pipeline.RFEX_READ.rt]) {
+    if(cpu->pipeline.RFEX_READ.rs_val != cpu->pipeline.RFEX_READ.rt_val) {
         cpu->PC = cpu->PC + b_target;
     }
 }
@@ -785,7 +693,7 @@ void SD(CPU *cpu) {
 }
 
 //op code instruction table
-void (*instruction_table[64])(CPU *) = {
+void (*opcode_table[64])(CPU *) = {
 
     [0x00] = R_FORMAT,
     [0x01] = instruction_exception, //SPECIAL;
@@ -808,7 +716,7 @@ void (*instruction_table[64])(CPU *) = {
     [0x12] = instruction_exception,
     [0x13] = instruction_exception,
     [0x14] = BEQL,
-    [0x15] = BNEQL,
+    [0x15] = BNEL,
     [0x16] = BLEZL,
     [0x17] = BGTZL,
     [0x18] = DADDI,

@@ -5,19 +5,30 @@
 #include <stdint.h>
 
 typedef enum {
-    R_TYPE, I_TYPE, J_TYPE, TRAP, ERROR, NOP
+    R_TYPE, I_TYPE, J_TYPE, TRAP, ERROR, NOP //if Itype or coproc ???
 } Format_Type;
 
 typedef enum {
-    LOAD, STORE, ALU, BRANCH, JUMP, SPECIAL, INVALID
+    LOAD, STORE, ALU, BRANCH, JUMP, 
+    COPROC,
+    SPECIAL, 
+    INVALID
 } Operation_Type;
 
 typedef enum {
-    NO_ACCESS, MEM_READ, MEM_WRITE, REG_READ, REG_WRITE, COPROC
+    NO_ACCESS, 
+    MEM_READ, 
+    MEM_WRITE, 
+    REG_READ, 
+    REG_WRITE
 } Access_Type;
 
 typedef enum {
-    ZERO, BYTE, H_WORD, UNUSED, WORD, D_WORD = 8
+    ZERO = 0, 
+    BYTE = 1, 
+    H_WORD = 2, 
+    WORD = 4,
+    D_WORD = 8
 } Num_Bytes;
 
 typedef struct {

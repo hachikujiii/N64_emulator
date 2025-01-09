@@ -2,6 +2,8 @@
 #define VIDEO_INTERFACE_H
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 typedef struct {
 
@@ -22,6 +24,9 @@ typedef struct {
     uint32_t vi_test_addr;
     uint32_t vi_staged_data;
     
-} Video_Interface ;
+} Video_Interface;
+
+uint32_t vi_read_reg(Video_Interface *vi, uint32_t addr);
+void vi_write_reg(Video_Interface *vi, uint32_t addr, uint32_t word);
 
 #endif
