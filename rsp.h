@@ -35,7 +35,9 @@ void dma_write(RSP *rsp);
 
 uint32_t rsp_read_reg(RSP *rsp, uint32_t addr);
 void rsp_write_reg(RSP *rsp, uint32_t addr, uint32_t value);
-uint32_t rsp_read_mem(RSP *rsp, uint32_t addr);
-void rsp_write_mem(RSP *rsp, uint32_t addr, uint32_t value);
+uint32_t rsp_read_dmem(RSP *rsp, uint32_t addr);
+void rsp_write_dmem(RSP *rsp, uint32_t addr, uint32_t value);
+uint32_t rsp_read_imem(RSP *rsp, uint32_t addr);
+void rsp_write_imem(RSP *rsp, uint32_t addr, uint32_t value);
 
 #endif

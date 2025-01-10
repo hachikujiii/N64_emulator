@@ -85,8 +85,6 @@ typedef struct {
 
 typedef struct {
     bool is_dirty;
-    bool forward_rs;
-    bool forward_rt;
     uint8_t count_write;
 } RegStatus;
 
@@ -119,8 +117,9 @@ typedef struct {
 
 void init_pipeline(Pipeline *pipeline);
 void insert_nop(Pipeline *pipeline, Stage stage);
-void hazard_detection(Pipeline *pipeline);
+void load_hazard_detection(Pipeline *pipeline);
 void check_data_forwarding(Pipeline *pipeline);
+void check_war_forwarding(Pipeline *pipeline, Format_Type type);
 uint64_t forward_data(Pipeline *pipeline, uint8_t reg_num);
 void ReadToWrite(Pipeline *pipeline);
 

@@ -102,7 +102,26 @@ void set_flags(Pipeline *pipeline) {
     pipeline->RFEX_WRITE.control = flags[pipeline->RFEX_WRITE.opcode];
 }
 
+void load_reg_data(CPU *cpu) {
 
+    
+
+    if(cpu->pipeline.RFEX_READ.control.format_type != I_TYPE) {
+        uint64_t rt_val = cpu->regs[cpu->pipeline.RFEX_READ.rt];
+        cpu->pipeline.RFEX_READ.rt_val = rt_val;
+        check_data_forwarding(&cpu->pipeline);
+    }
+
+    uint64_t rs_val = cpu->regs[cpu->pipeline.RFEX_READ.rs];
+    cpu->pipeline.RFEX_READ.rs_val = rs_val;
+    check_data_forwarding(&cpu->pipeline);
+
+    if(cpu->pipeline.RFEX_READ.RegWrite) {
+        uint8_t write_reg_num = cpu->pipeline.RFEX_READ.Write_Reg_Num;
+        cpu->pipeline.HAZARD.reg_status[write_reg_num].is_dirty = 1;
+        cpu->pipeline.HAZARD.reg_status[write_reg_num].count_write++;
+    }
+}
 
 
 void IC_stage(CPU *cpu) {
@@ -134,11 +153,7 @@ void RF_stage(CPU *cpu) {
     
     decode(&cpu->pipeline);
 
-    //load reg data even if it is stale
-    cpu->pipeline.RFEX_WRITE.rs_val = cpu->regs[cpu->pipeline.RFEX_WRITE.rs];
-    cpu->pipeline.RFEX_WRITE.rt_val = cpu->regs[cpu->pipeline.RFEX_WRITE.rt];
-
-    hazard_detection(&cpu->pipeline);
+    load_hazard_detection(&cpu->pipeline);
 
 }
 
@@ -164,8 +179,9 @@ void EX_stage(CPU *cpu) {
         return;
     }
 
-    //if bool allow forwarding == true {}
-    check_data_forwarding(&cpu->pipeline);
+    
+
+    load_reg_data(cpu);
 
     execute_instruction(cpu);
 }
@@ -245,7 +261,9 @@ void WB_stage(CPU *cpu) {
                 cpu->regs[REG_LO] = result;
             } else {
                 cpu->regs[writeReg] = result;
-            }  
+            }
+
+            check_war_forwarding(&cpu->pipeline, R_TYPE);
 
         } else if(cpu->pipeline.DCWB_READ.control.format_type == I_TYPE) {
    
@@ -257,6 +275,8 @@ void WB_stage(CPU *cpu) {
             } else {
                 cpu->regs[writeReg] = result;
             }
+
+            check_war_forwarding(&cpu->pipeline, I_TYPE);
         }
 
         if(cpu->pipeline.HAZARD.reg_status[writeReg].is_dirty && 
@@ -632,7 +652,7 @@ void SW(CPU *cpu) {
     cpu->pipeline.EXDC_WRITE.SW_Value = cpu->pipeline.RFEX_READ.rt_val;
 
     if((cpu->pipeline.EXDC_WRITE.ALU_Result & 0x3) != 0) {
-        printf("address exception for LW\n");
+        printf("address exception for SW function\n");
         exit(EXIT_FAILURE);
     }
 

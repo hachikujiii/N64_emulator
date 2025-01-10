@@ -83,6 +83,7 @@ extern Control flags[64];
 // CPU fetch function example
 uint32_t fetch_instruction(CPU *cpu);
 void decode(Pipeline *pipeline);
+void load_reg_data(CPU *cpu);
 void execute_instruction(CPU *cpu);
 void set_flags(Pipeline *pipeline);
 void IC_stage(CPU *cpu);

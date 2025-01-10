@@ -91,13 +91,7 @@ void insert_nop(Pipeline *pipeline, Stage stage) {
     }
 }
 
-void hazard_detection(Pipeline *pipeline) {
-
-    if(pipeline->RFEX_WRITE.RegWrite) {
-        uint8_t write_reg_num = pipeline->RFEX_WRITE.Write_Reg_Num;
-        pipeline->HAZARD.reg_status[write_reg_num].is_dirty = 1;
-        pipeline->HAZARD.reg_status[write_reg_num].count_write++;
-    }
+void load_hazard_detection(Pipeline *pipeline) {
 
     if(pipeline->RFEX_READ.MemToReg) {
 
@@ -113,21 +107,50 @@ void hazard_detection(Pipeline *pipeline) {
     }
 }
 
+void check_war_forwarding(Pipeline *pipeline, Format_Type type) {
+
+    switch(type) {
+
+        case I_TYPE:
+
+            if ((pipeline->RFEX_WRITE.rs == pipeline->DCWB_READ.Write_Reg_Num) && (pipeline->DCWB_READ.control.op_type == LOAD)) {
+                pipeline->RFEX_WRITE.rs_val = pipeline->DCWB_READ.LW_Data_Value;  // Forward the result directly
+            } else if (pipeline->RFEX_WRITE.rs == pipeline->DCWB_READ.Write_Reg_Num) {
+                pipeline->RFEX_WRITE.rs_val = pipeline->DCWB_READ.ALU_Result;  // Forward the result directly
+            }
+            break;
+
+        case R_TYPE:
+            if (pipeline->RFEX_WRITE.rs == pipeline->DCWB_READ.Write_Reg_Num) {
+                pipeline->RFEX_WRITE.rs_val = pipeline->DCWB_READ.ALU_Result;
+            }
+            if (pipeline->RFEX_WRITE.rt == pipeline->DCWB_READ.Write_Reg_Num) {
+                pipeline->RFEX_WRITE.rt_val = pipeline->DCWB_READ.ALU_Result;
+            }
+            break;
+
+        default:
+            printf("error in war forwarding\n");
+            exit(1);
+    }
+    
+}
+
 void check_data_forwarding(Pipeline *pipeline) {
 
     uint8_t rs = pipeline->RFEX_READ.rs;
     uint8_t rt = pipeline->RFEX_READ.rt;
 
-    
-    if(pipeline->HAZARD.reg_status[rs].is_dirty) {
-        pipeline->HAZARD.reg_status[rs].forward_rs = 1;
-        pipeline->RFEX_READ.rs_val = forward_data(pipeline, rs);
+    //check current instruction for data forwarding
+    if(pipeline->RFEX_READ.control.format_type == R_TYPE) {
+
+        if(pipeline->HAZARD.reg_status[rt].is_dirty) {
+            pipeline->RFEX_READ.rt_val = forward_data(pipeline, rt);
+        }
     }
 
-    
-    if(pipeline->HAZARD.reg_status[rt].is_dirty) {
-        pipeline->HAZARD.reg_status[rt].forward_rt = 1;
-        pipeline->RFEX_READ.rt_val = forward_data(pipeline, rt);
+    if(pipeline->HAZARD.reg_status[rs].is_dirty) {
+        pipeline->RFEX_READ.rs_val = forward_data(pipeline, rs);
     }
     
 }

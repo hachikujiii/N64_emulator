@@ -77,6 +77,12 @@ void vi_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
 uint32_t ai_read_reg_wrapper(MMU *mmu, uint32_t physical_address);
 void ai_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word);
 
+uint32_t dmem_read_wrapper(MMU *mmu, uint32_t physical_address);
+void dmem_write_wrapper(MMU *mmu, uint32_t phyiscal_address, uint32_t word);
+uint32_t imem_read_wrapper(MMU *mmu, uint32_t physical_address);
+void imem_write_wrapper(MMU *mmu, uint32_t phyiscal_address, uint32_t word);
+
+
 extern uint32_t (*read_table[PHYSICAL_RANGE_COUNT])(MMU *mmu, uint32_t physical_address);
 extern void (*write_table[PHYSICAL_RANGE_COUNT])(MMU *mmu, uint32_t physical_address, uint32_t data);
 

@@ -13,8 +13,8 @@ uint32_t (*read_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address) =
     [RDRAM] = NULL,
     [RDRAMX] = NULL,
     [RDRAM_REGS] = NULL,
-    [SPDMEM] = NULL,
-    [SPIMEM] = NULL,
+    [SPDMEM] = dmem_read_wrapper,
+    [SPIMEM] = imem_read_wrapper,
     [SP_REGS] = sp_read_reg_wrapper,
     [DPCOM] = NULL,
     [DPSPAN] = NULL,
@@ -38,8 +38,8 @@ void (*write_table[PHYSICAL_RANGE_COUNT])(MMU *, uint32_t physical_address, uint
     [RDRAM] = NULL,
     [RDRAMX] = NULL,
     [RDRAM_REGS] = NULL,
-    [SPDMEM] = NULL,
-    [SPIMEM] = NULL,
+    [SPDMEM] = dmem_write_wrapper,
+    [SPIMEM] = imem_write_wrapper,
     [SP_REGS] = sp_write_reg_wrapper,
     [DPCOM] = NULL,
     [DPSPAN] = NULL,
@@ -127,6 +127,27 @@ void ai_write_reg_wrapper(MMU *mmu, uint32_t physical_address, uint32_t word) {
     ai_write_reg(mmu->ai, physical_address, word);
 }
 
+
+uint32_t dmem_read_wrapper(MMU *mmu, uint32_t physical_address) {
+
+    return rsp_read_dmem(mmu->rsp, physical_address);
+}
+
+void dmem_write_wrapper(MMU *mmu, uint32_t phyiscal_address, uint32_t word) {
+
+    rsp_write_dmem(mmu->rsp, phyiscal_address, word);
+}
+
+
+uint32_t imem_read_wrapper(MMU *mmu, uint32_t physical_address) {
+
+    return rsp_read_imem(mmu->rsp, physical_address);
+}
+
+void imem_write_wrapper(MMU *mmu, uint32_t phyiscal_address, uint32_t word) {
+
+    rsp_write_imem(mmu->rsp, phyiscal_address, word);
+}
 
 
 

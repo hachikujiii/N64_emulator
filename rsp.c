@@ -67,13 +67,46 @@ void rsp_write_reg(RSP *rsp, uint32_t addr, uint32_t word) {
     }
 }
 
-uint32_t rsp_read_mem(RSP *rsp, uint32_t addr) {
-    if (addr >= 0x04000000 && addr <= 0x04000FFF) {
-        return *(uint32_t*)&rsp->dmem[addr - 0x04000000];
-    }
-    else if (addr >= 0x04001000 && addr <= 0x04001FFF) {
-        return *(uint32_t*)&rsp->imem[addr - 0x04001000];
-    } 
+uint32_t rsp_read_dmem(RSP *rsp, uint32_t addr) {
+    uint32_t offset;
+    uint32_t value;
 
-    return 0;
+    offset = addr - 0x04000000;
+    value = (rsp->dmem[offset] << 24) |
+            (rsp->dmem[offset + 1] << 16) |
+            (rsp->dmem[offset + 2] << 8) |
+            (rsp->dmem[offset + 3]);
+    return value;
+
 }
+
+void rsp_write_dmem(RSP *rsp, uint32_t addr, uint32_t word) {
+    uint32_t offset;
+    uint32_t value;
+
+    offset = addr - 0x04000000;
+    rsp->imem[offset] = word;
+}
+
+uint32_t rsp_read_imem(RSP *rsp, uint32_t addr) {
+    uint32_t offset;
+    uint32_t value;
+
+    offset = addr - 0x04001000;
+    value = (rsp->imem[offset] << 24) |
+            (rsp->imem[offset + 1] << 16) |
+            (rsp->imem[offset + 2] << 8) |
+            (rsp->imem[offset + 3]);
+    return value;
+
+}
+
+void rsp_write_imem(RSP *rsp, uint32_t addr, uint32_t word) {
+    uint32_t offset;
+    uint32_t value;
+
+    offset = addr - 0x04001000;
+    rsp->imem[offset] = word;
+}
+
+   
